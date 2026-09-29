@@ -25,11 +25,13 @@ mkdirSync(TMP_DIR, { recursive: true });
 const queue = new SerialQueue();
 const runs = new Map(store.loadRuns().map((r) => [r.id, r]));
 
+const ACTIVE_STATUS = new Set(['queued', 'loading', 'loaded', 'generating']);
+
 // Corridas que quedaron a medias si el servidor se cerró durante una generación.
 for (const run of runs.values()) {
   let dirty = false;
   for (const r of Object.values(run.results)) {
-    if (!['done', 'error', 'cancelled'].includes(r.status)) {
+    if (ACTIVE_STATUS.has(r.status)) {
       Object.assign(r, { status: 'cancelled', message: 'Interrumpido al reiniciar el servidor' });
       dirty = true;
     }
@@ -90,8 +92,21 @@ app.get('/api/runs/:id', (req, res) => {
   run ? res.json(run) : res.status(404).json({ error: 'No existe' });
 });
 
+// Solo se aceptan parámetros declarados en el catálogo.
+function sanitizeParams(model, params = {}) {
+  const clean = defaultsFor(model);
+  for (const p of model.params) if (params?.[p.key] !== undefined) clean[p.key] = params[p.key];
+  return clean;
+}
+
+// Semilla 0 = aleatoria: se resuelve aquí para poder mostrarla y reproducir una toma que guste.
+const resolveSeed = (seed) => Number(seed) || 1 + Math.floor(Math.random() * 2_147_483_646);
+
 app.post('/api/runs', (req, res) => {
-  const { text, models: requested = [], voiceId, blind = false } = req.body ?? {};
+  const { text, models: requested = [], voiceId, blind = false, mode = 'arena' } = req.body ?? {};
+  // "single": una toma individual de un modelo para afinar parámetros (no entra al ranking).
+  const single = mode === 'single';
+  if (single && requested.length !== 1) return res.status(400).json({ error: 'Una toma individual lleva un solo modelo.' });
   const cleanText = String(text ?? '').trim();
   if (!cleanText) return res.status(400).json({ error: 'Escribe un texto.' });
   if (cleanText.length > MAX_TEXT) return res.status(400).json({ error: `Máximo ${MAX_TEXT} caracteres.` });
@@ -106,9 +121,7 @@ app.post('/api/runs', (req, res) => {
     if (!model) return res.status(400).json({ error: `Modelo desconocido: ${reqModel.id}` });
     const readiness = modelReadiness(model);
     if (!readiness.ready) return res.status(400).json({ error: `${model.name}: ${readiness.reason}` });
-    // Solo se aceptan parámetros declarados en el catálogo.
-    const params = defaultsFor(model);
-    for (const p of model.params) if (reqModel.params?.[p.key] !== undefined) params[p.key] = reqModel.params[p.key];
+    const params = sanitizeParams(model, reqModel.params);
     results[model.id] = {
       model: model.id,
       params,
@@ -125,9 +138,10 @@ app.post('/api/runs', (req, res) => {
     createdAt: new Date().toISOString(),
     text: cleanText,
     voice: voice ? { id: voice.id, name: voice.name } : null,
-    blind: Boolean(blind),
+    mode: single ? 'single' : 'arena',
+    blind: !single && Boolean(blind),
     // En modo ciego el orden se baraja y la UI muestra "Modelo A, B, C…".
-    order: blind ? shuffle(order) : order,
+    order: blind && !single ? shuffle(order) : order,
     results,
     vote: null,
   };
@@ -143,7 +157,7 @@ function enqueueRun(run, voice) {
     const model = getModel(modelId);
     queue.push({
       id: run.id,
-      label: `${model.name}`,
+      label: run.mode === 'single' ? `${model.name} · toma` : model.name,
       run: (ctx) => executeModel(run, model, voice, ctx),
     });
   }
@@ -156,7 +170,7 @@ async function executeModel(run, model, voice, ctx) {
     Object.assign(result, patch);
     updateRun(run);
   };
-  set({ status: 'loading', message: 'Iniciando proceso…', startedAt: new Date().toISOString() });
+  set({ status: 'loading', message: 'Iniciando proceso…', startedAt: new Date().toISOString(), seedUsed: resolveSeed(result.params.seed) });
 
   const dir = store.runDir(run.id);
   const fileName = `${model.id}.wav`;
@@ -170,7 +184,7 @@ async function executeModel(run, model, voice, ctx) {
     model: model.id,
     // Cada modelo recibe las etiquetas del guion traducidas a su formato (o eliminadas).
     text: textForModel(model.id, run.text),
-    params: result.params,
+    params: { ...result.params, seed: result.seedUsed },
     ref_audio: ref?.file ?? null,
     ref_text: ref?.transcript || null,
     output_path: join(dir, fileName),
@@ -225,6 +239,26 @@ app.post('/api/runs/:id/vote', (req, res) => {
   res.json(run);
 });
 
+// Descarta una sola toma (el resultado de un modelo) sin tocar las demás de la corrida.
+app.delete('/api/runs/:id/results/:model', (req, res) => {
+  const run = runs.get(req.params.id);
+  const result = run?.results[req.params.model];
+  if (!result) return res.status(404).json({ error: 'No existe' });
+  if (ACTIVE_STATUS.has(result.status)) return res.status(400).json({ error: 'Detén la generación antes de descartarla.' });
+  if (Object.keys(run.results).length === 1) {
+    runs.delete(run.id);
+    store.deleteRun(run.id);
+    broadcast('run-deleted', { id: run.id });
+    return res.json({ ok: true });
+  }
+  delete run.results[result.model];
+  run.order = run.order.filter((id) => id !== result.model);
+  rmSync(join(store.runDir(run.id), `${result.model}.wav`), { force: true });
+  if (run.vote?.winner === result.model) run.vote = null;
+  updateRun(run);
+  res.json(run);
+});
+
 app.delete('/api/runs/:id', (req, res) => {
   const run = runs.get(req.params.id);
   if (!run) return res.status(404).json({ error: 'No existe' });
@@ -263,6 +297,31 @@ app.get('/api/leaderboard', (req, res) => {
   }));
   rows.sort((a, b) => (b.winRate ?? -1) - (a.winRate ?? -1) || b.wins - a.wins);
   res.json(rows);
+});
+
+// ---------- Ajustes guardados por modelo ----------
+
+app.get('/api/presets', (req, res) => res.json(store.listPresets()));
+
+app.post('/api/presets', (req, res) => {
+  const { model: modelId, name, params, useReference = true } = req.body ?? {};
+  const model = getModel(modelId);
+  if (!model) return res.status(400).json({ error: `Modelo desconocido: ${modelId}` });
+  if (!String(name ?? '').trim()) return res.status(400).json({ error: 'Ponle un nombre al ajuste.' });
+  const preset = store.savePreset({
+    model: model.id,
+    name: String(name).trim().slice(0, 80),
+    params: sanitizeParams(model, params),
+    useReference: Boolean(useReference),
+  });
+  broadcast('presets', store.listPresets());
+  res.status(201).json(preset);
+});
+
+app.delete('/api/presets/:id', (req, res) => {
+  if (!store.deletePreset(req.params.id)) return res.status(404).json({ error: 'No existe' });
+  broadcast('presets', store.listPresets());
+  res.json({ ok: true });
 });
 
 // ---------- Voces de referencia ----------

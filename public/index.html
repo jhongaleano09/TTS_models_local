@@ -128,6 +128,18 @@
         <p class="strip-unready error" hidden></p>
       </header>
       <div class="strip-body">
+        <div class="presets">
+          <label class="label-sm">Ajustes guardados</label>
+          <div class="preset-row">
+            <select class="preset-select"></select>
+            <button class="link danger preset-delete" type="button" hidden>Eliminar</button>
+          </div>
+          <form class="preset-save">
+            <input class="preset-name" maxlength="80" placeholder="Nombre del ajuste" title="Guarda los ajustes actuales con este nombre; si ya existe, se actualiza">
+            <button class="btn ghost small" type="submit">Guardar</button>
+          </form>
+          <p class="hint preset-status" aria-live="polite"></p>
+        </div>
         <label class="switch small ref-toggle"><input type="checkbox" class="use-ref"><span>Usar voz de referencia</span></label>
         <p class="hint ref-note"></p>
         <div class="params"></div>
@@ -138,10 +150,12 @@
         <p class="hint text-hint"></p>
       </div>
       <footer class="output">
-        <div class="status"><span class="status-dot"></span><span class="status-text">Sin generar</span></div>
-        <audio controls preload="none" hidden></audio>
-        <dl class="metrics"></dl>
-        <details class="log" hidden><summary>Registro</summary><pre></pre></details>
+        <div class="take-bar">
+          <p class="pending-diff hint"></p>
+          <button class="btn ghost small solo" type="button">Generar solo este</button>
+        </div>
+        <p class="takes-empty hint">Sin tomas para este texto.</p>
+        <div class="takes"></div>
       </footer>
     </article>
   </template>

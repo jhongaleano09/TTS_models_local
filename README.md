@@ -40,6 +40,8 @@ npm run dev       # abre http://localhost:5178
 
 - **Arena:** texto, voz de referencia y una columna por modelo con sus parámetros (los avanzados, plegados). Cada columna muestra su audio, tiempo de generación, RTF y memoria pico. La cabecera enciende una luz por el modelo que está en memoria en ese momento.
 - **Accesos rápidos:** seis guiones etiquetados que fijan también el tono de Fish, Higgs y CosyVoice3. Las etiquetas se traducen a cada modelo (ver [docs/modelos.md](docs/modelos.md#traducción-de-etiquetas-entre-modelos)).
+- **Tomas individuales y ajuste fino:** el botón **Generar solo este** de cada columna genera solo ese modelo con sus ajustes actuales. Las tomas anteriores del mismo texto se conservan en la columna (la más reciente arriba), cada una con su audio y los parámetros que cambiaron frente a la anterior; antes de generar, la columna muestra qué cambiará frente a la última toma. La semilla 0 (aleatoria) se resuelve a un número concreto y queda registrada, así una toma aleatoria que guste se puede reproducir con **Usar estos ajustes**. Se pueden encolar varias tomas seguidas y descartar las que no sirvan. Las tomas individuales no cuentan para el ranking.
+- **Ajustes guardados:** cada columna guarda configuraciones con nombre (parámetros + uso de la voz de referencia) en `data/presets.json`, desde los controles actuales o desde una toma (**Guardar como ajuste**). Guardar con un nombre existente lo actualiza.
 - **Escucha a ciegas:** baraja los resultados como Modelo A/B/C/D/E; al votar se revelan los nombres.
 - **Historial:** todas las generaciones, con descarga del WAV y la opción de reutilizar su configuración.
 - **Ranking:** victorias por modelo en las comparaciones votadas y RTF medio.
@@ -59,7 +61,7 @@ Navegador ──HTTP/SSE──▶ Node (Express)
 
 - Cada modelo corre en **su propio proceso Python**; al terminar, el proceso sale y el sistema operativo recupera toda su memoria. Si detienes el servidor, el proceso en curso se termina también.
 - Hay **tres entornos Python**: Chatterbox fija `transformers 4.46` y `mlx-audio` exige `≥ 5.14`; y `mlx-audio-plus` (CosyVoice3) se instala como el mismo paquete `mlx_audio` que `mlx-audio`.
-- Los resultados se guardan en `outputs/runs/<id>/` (WAV + `run.json`); las voces subidas en `data/voices/`.
+- Los resultados se guardan en `outputs/runs/<id>/` (WAV + `run.json`); las voces subidas en `data/voices/`; los ajustes guardados en `data/presets.json`.
 
 ## Problemas frecuentes
 

@@ -51,6 +51,7 @@ const LETTERS = 'ABCDEFGH';
 const state = {
   models: [],
   voices: [],
+  presets: [],
   runs: new Map(),
   currentRunId: null,
   settings: loadSettings(),
@@ -98,11 +99,15 @@ textEl.value = state.settings.text ?? '';
 function updateCounter() {
   $('#counter').textContent = `${textEl.value.length} / 3000`;
 }
+let textTimer = null;
 textEl.addEventListener('input', () => {
   state.settings.text = textEl.value;
   saveSettings();
   updateCounter();
   updateGenerateButton();
+  // Las tomas de cada columna dependen del texto: se comparan versiones del mismo guion.
+  clearTimeout(textTimer);
+  textTimer = setTimeout(renderOutputs, 250);
 });
 updateCounter();
 
@@ -165,6 +170,7 @@ $('#voice').addEventListener('change', (e) => {
   state.settings.voiceId = e.target.value;
   saveSettings();
   updateVoicePreview();
+  refreshAllPending();
 });
 
 // ---------- Channel strips ----------
@@ -180,6 +186,7 @@ function renderParam(model, param, settings) {
   const set = (v) => {
     settings.params[param.key] = v;
     saveSettings();
+    refreshPending(model.id);
   };
   const help = param.help ? h('p', { class: 'hint' }, param.help) : null;
 
@@ -216,9 +223,22 @@ function renderParam(model, param, settings) {
     help);
 }
 
+// Rellena los controles de cada columna; se guarda por modelo para refrescarlos sin
+// reconstruir la columna (y sin cortar el audio que esté sonando en sus tomas).
+const stripFillers = new Map();
+
+function applyConfig(model, params, useReference) {
+  const settings = modelSettings(model);
+  settings.params = { ...model.defaults, ...params };
+  settings.useReference = useReference;
+  saveSettings();
+  stripFillers.get(model.id)?.();
+}
+
 function renderStrips() {
   const container = $('#strips');
   container.replaceChildren();
+  stripFillers.clear();
   for (const model of state.models) {
     const settings = modelSettings(model);
     const strip = $('#tpl-strip').content.firstElementChild.cloneNode(true);
@@ -246,35 +266,112 @@ function renderStrips() {
     }
 
     const useRef = $('.use-ref', strip);
-    useRef.checked = settings.useReference;
     useRef.addEventListener('change', () => {
       settings.useReference = useRef.checked;
       saveSettings();
+      refreshPending(model.id);
     });
 
     const fill = () => {
-      $('.params', strip).replaceChildren(...model.params.filter((p) => !p.advanced).map((p) => renderParam(model, p, settings)));
-      $('.params-adv', strip).replaceChildren(...model.params.filter((p) => p.advanced).map((p) => renderParam(model, p, settings)));
+      const s = modelSettings(model);
+      useRef.checked = s.useReference;
+      $('.params', strip).replaceChildren(...model.params.filter((p) => !p.advanced).map((p) => renderParam(model, p, s)));
+      $('.params-adv', strip).replaceChildren(...model.params.filter((p) => p.advanced).map((p) => renderParam(model, p, s)));
+      refreshPending(model.id);
     };
-    fill();
-    $('.reset', strip).addEventListener('click', () => {
-      settings.params = { ...model.defaults };
-      saveSettings();
-      fill();
-    });
+    stripFillers.set(model.id, fill);
+    $('.reset', strip).addEventListener('click', () => applyConfig(model, model.defaults, true));
+
+    setupPresets(strip, model);
+    $('.solo', strip).addEventListener('click', () => generateSolo(model));
     container.append(strip);
+    fill();
   }
   updateGenerateButton();
-  renderCurrentRun();
+  renderOutputs();
+}
+
+// ---------- Ajustes guardados ----------
+
+function setupPresets(strip, model) {
+  const settings = modelSettings(model);
+  const select = $('.preset-select', strip);
+  const status = $('.preset-status', strip);
+  const nameInput = $('.preset-name', strip);
+
+  select.addEventListener('change', () => {
+    const preset = state.presets.find((p) => p.id === select.value);
+    settings.presetId = preset?.id ?? null;
+    $('.preset-delete', strip).hidden = !preset;
+    if (!preset) return saveSettings();
+    applyConfig(model, preset.params, preset.useReference);
+    // Guardar con el mismo nombre sobrescribe: así se afina un ajuste existente.
+    nameInput.value = preset.name;
+    status.textContent = `Ajuste «${preset.name}» cargado.`;
+  });
+
+  $('.preset-delete', strip).addEventListener('click', async () => {
+    const preset = state.presets.find((p) => p.id === select.value);
+    if (!preset) return;
+    try {
+      await api(`/api/presets/${preset.id}`, { method: 'DELETE' });
+      state.presets = state.presets.filter((p) => p.id !== preset.id);
+      settings.presetId = null;
+      saveSettings();
+      renderPresetSelects();
+      status.textContent = `Ajuste «${preset.name}» eliminado.`;
+    } catch (err) {
+      status.textContent = err.message;
+    }
+  });
+
+  $('.preset-save', strip).addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const s = modelSettings(model);
+    status.textContent = await savePreset(model, nameInput.value, s.params, s.useReference);
+  });
+}
+
+async function savePreset(model, name, params, useReference) {
+  if (!name.trim()) return 'Escribe un nombre para el ajuste.';
+  const replaces = state.presets.some((p) => p.model === model.id && p.name.toLowerCase() === name.trim().toLowerCase());
+  try {
+    const preset = await api('/api/presets', { method: 'POST', body: { model: model.id, name, params, useReference } });
+    state.presets = [...state.presets.filter((p) => p.id !== preset.id), preset];
+    modelSettings(model).presetId = preset.id;
+    saveSettings();
+    renderPresetSelects();
+    return replaces ? `Ajuste «${preset.name}» actualizado.` : `Ajuste «${preset.name}» guardado.`;
+  } catch (err) {
+    return err.message;
+  }
+}
+
+function renderPresetSelects() {
+  for (const strip of $$('.strip')) {
+    const model = state.models.find((m) => m.id === strip.dataset.model);
+    const settings = modelSettings(model);
+    const presets = state.presets.filter((p) => p.model === model.id).sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    const select = $('.preset-select', strip);
+    select.replaceChildren(
+      h('option', { value: '' }, presets.length ? 'Elegir un ajuste…' : 'Aún no hay ajustes guardados'),
+      ...presets.map((p) => h('option', { value: p.id }, p.name)),
+    );
+    select.disabled = !presets.length;
+    select.value = presets.some((p) => p.id === settings.presetId) ? settings.presetId : '';
+    $('.preset-delete', strip).hidden = !select.value;
+  }
 }
 
 function enabledModels() {
   return state.models.filter((m) => m.ready && modelSettings(m).enabled);
 }
 
+const runActive = (run) => Object.values(run.results).some((r) => ACTIVE.has(r.status));
+
 function isBusy() {
   const run = state.runs.get(state.currentRunId);
-  return Boolean(run && Object.values(run.results).some((r) => ACTIVE.has(r.status)));
+  return Boolean(run && runActive(run));
 }
 
 function updateGenerateButton() {
@@ -282,7 +379,11 @@ function updateGenerateButton() {
   const btn = $('#generate');
   btn.textContent = n === 1 ? 'Generar con 1 modelo' : `Generar con ${n} modelos`;
   btn.disabled = n === 0 || !textEl.value.trim() || isBusy();
-  $('#cancel').hidden = !isBusy();
+  $('#cancel').hidden = ![...state.runs.values()].some(runActive);
+  for (const solo of $$('.solo')) {
+    const model = state.models.find((m) => m.id === solo.closest('.strip').dataset.model);
+    solo.disabled = !model?.ready || !textEl.value.trim();
+  }
 }
 
 // ---------- Generación ----------
@@ -303,6 +404,7 @@ $('#generate').addEventListener('click', async () => {
         text: textEl.value,
         voiceId,
         blind: $('#blind').checked,
+        mode: 'arena',
         models: enabledModels().map((m) => {
           const s = modelSettings(m);
           return { id: m.id, params: s.params, useReference: s.useReference };
@@ -311,14 +413,37 @@ $('#generate').addEventListener('click', async () => {
     });
     state.runs.set(run.id, run);
     state.currentRunId = run.id;
-    renderCurrentRun();
+    renderOutputs();
   } catch (err) {
     showError(err.message);
   }
 });
 
+// Toma individual: solo este modelo con sus ajustes actuales. Las tomas anteriores se
+// conservan en la columna para compararlas; se pueden encolar varias seguidas.
+async function generateSolo(model) {
+  showError(null);
+  const s = modelSettings(model);
+  try {
+    const run = await api('/api/runs', {
+      method: 'POST',
+      body: {
+        text: textEl.value,
+        voiceId: $('#voice').value || null,
+        mode: 'single',
+        models: [{ id: model.id, params: s.params, useReference: s.useReference }],
+      },
+    });
+    state.runs.set(run.id, run);
+    renderOutputs();
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
 $('#cancel').addEventListener('click', async () => {
-  if (state.currentRunId) await api(`/api/runs/${state.currentRunId}/cancel`, { method: 'POST' }).catch((e) => showError(e.message));
+  const active = [...state.runs.values()].filter(runActive);
+  await Promise.all(active.map((run) => api(`/api/runs/${run.id}/cancel`, { method: 'POST' }))).catch((e) => showError(e.message));
 });
 
 function metricList(m) {
@@ -332,34 +457,218 @@ function metricList(m) {
   return items.map(([k, v]) => h('div', {}, h('dt', {}, k), h('dd', {}, v)));
 }
 
-function renderCurrentRun() {
-  const run = state.runs.get(state.currentRunId);
-  for (const strip of $$('.strip')) {
-    const out = $('.output', strip);
-    const result = run?.results[strip.dataset.model];
-    out.dataset.status = result?.status ?? 'idle';
-    const hidden = run?.blind && !run.vote;
-    $('.status-text', out).textContent = !result
-      ? 'Sin generar'
-      : hidden && result.status === 'done'
-        ? 'Listo: escúchalo abajo, a ciegas'
-        : result.status === 'error'
-          ? result.message
-          : result.message && ACTIVE.has(result.status) ? result.message : STATUS_TEXT[result.status];
-    const audio = $('audio', out);
-    const showAudio = result?.status === 'done' && !hidden;
-    audio.hidden = !showAudio;
-    if (showAudio && audio.dataset.src !== result.audioUrl) {
-      audio.dataset.src = result.audioUrl;
-      audio.src = result.audioUrl;
-    }
-    $('.metrics', out).replaceChildren(...(showAudio ? metricList(result.metrics) : []));
-    const log = $('.log', out);
-    log.hidden = !(result?.status === 'error' && result.log?.length);
-    if (!log.hidden) $('pre', log).textContent = result.log.join('\n');
+// ---------- Tomas: todas las generaciones de un modelo para el texto actual ----------
+
+function takesFor(modelId) {
+  const text = textEl.value.trim();
+  return [...state.runs.values()]
+    .filter((run) => run.results[modelId] && run.text === text)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    .map((run, i) => ({ run, result: run.results[modelId], n: i + 1 }));
+}
+
+const clip = (text, max = 48) => (text.length > max ? `${text.slice(0, max)}…` : text);
+
+function paramText(param, value) {
+  if (param.type === 'checkbox') return value ? 'sí' : 'no';
+  if (param.type === 'textarea') return value ? `“${clip(value)}”` : '(vacía)';
+  return String(formatValue(param, value));
+}
+
+// Vista comparable de una configuración: etiqueta y texto de cada parámetro, más la voz.
+function configView(model, params, seedText, voice) {
+  const view = {};
+  for (const p of model.params) view[p.key] = { label: p.label, text: p.key === 'seed' ? seedText : paramText(p, params[p.key] ?? p.default) };
+  view.voice = { label: 'Voz', text: voice ?? 'sin referencia' };
+  return view;
+}
+
+const takeSeed = (result) => result.seedUsed ?? result.params.seed;
+
+function takeView(model, { run, result }) {
+  const seed = takeSeed(result);
+  return configView(model, result.params, seed ? String(seed) : 'aleatoria', result.useReference ? run.voice?.name : null);
+}
+
+function pendingView(model, latest) {
+  const s = modelSettings(model);
+  const voice = state.voices.find((v) => v.id === $('#voice').value);
+  // Semilla aleatoria contra una toma también aleatoria no es un cambio.
+  const seedText = s.params.seed ? String(s.params.seed) : latest && !latest.result.params.seed ? String(takeSeed(latest.result)) : 'aleatoria';
+  return configView(model, s.params, seedText, s.useReference && voice ? voice.name : null);
+}
+
+function diffViews(a, b) {
+  return Object.keys(b)
+    .filter((k) => a[k]?.text !== b[k].text)
+    .map((k) => h('li', {}, h('span', { class: 'diff-key' }, b[k].label), ' ', h('s', {}, a[k]?.text ?? '—'), ' → ', h('strong', {}, b[k].text)));
+}
+
+function refreshPending(modelId) {
+  const strip = $(`.strip[data-model="${modelId}"]`);
+  const model = state.models.find((m) => m.id === modelId);
+  if (!strip || !model) return;
+  const takes = takesFor(modelId);
+  const latest = takes.at(-1);
+  const el = $('.pending-diff', strip);
+  if (!latest) {
+    el.replaceChildren('Genera una toma con estos ajustes; las siguientes se comparan con ella.');
+    return;
   }
-  renderBlindPanel(run);
+  const changes = diffViews(takeView(model, latest), pendingView(model, latest));
+  el.replaceChildren(
+    ...[changes.length
+      ? [h('span', {}, `Próxima toma frente a la toma ${latest.n}:`), h('ul', { class: 'diff' }, changes)]
+      : modelSettings(model).params.seed
+        ? `Mismos ajustes que la toma ${latest.n}: con semilla fija saldrá casi igual.`
+        : `Mismos ajustes que la toma ${latest.n}: cambiará solo la semilla aleatoria.`].flat(),
+  );
+}
+
+function refreshAllPending() {
+  for (const m of state.models) refreshPending(m.id);
+}
+
+function createTakeEl(model) {
+  const el = h('article', { class: 'take' },
+    h('header', { class: 'take-head' },
+      h('span', { class: 'status-dot' }),
+      h('strong', { class: 'take-title' }),
+      h('span', { class: 'take-tag' }),
+      h('span', { class: 'take-time' })),
+    h('p', { class: 'status-text' }),
+    h('audio', { controls: true, preload: 'none', hidden: true }),
+    h('dl', { class: 'metrics' }),
+    h('div', { class: 'take-diff' }),
+    h('details', { class: 'take-config' }, h('summary', {}, 'Configuración completa'), h('dl', {})),
+    h('div', { class: 'take-actions' },
+      h('button', { class: 'link', type: 'button', onclick: () => loadTake(model, el._take) }, 'Usar estos ajustes'),
+      h('button', { class: 'link', type: 'button', onclick: () => toggleTakeSave(el) }, 'Guardar como ajuste'),
+      h('button', { class: 'link danger', type: 'button', onclick: () => discardTake(el._take) }, 'Descartar')),
+    h('form', {
+      class: 'take-save',
+      hidden: true,
+      onsubmit: async (e) => {
+        e.preventDefault();
+        const { result } = el._take;
+        const status = $('.take-save-status', el);
+        status.textContent = await savePreset(model, $('input', e.target).value, { ...result.params, seed: takeSeed(result) }, result.useReference);
+      },
+    },
+      h('input', { maxlength: 80, placeholder: 'Nombre del ajuste' }),
+      h('button', { class: 'btn ghost small', type: 'submit' }, 'Guardar'),
+      h('p', { class: 'hint take-save-status', 'aria-live': 'polite' })),
+    h('details', { class: 'log', hidden: true }, h('summary', {}, 'Registro'), h('pre', {})));
+  return el;
+}
+
+function updateTakeEl(el, model, take, prev, total) {
+  const { run, result, n } = take;
+  el._take = take;
+  el.dataset.status = result.status;
+  el.classList.toggle('latest', n === total && total > 1);
+  const hidden = run.blind && !run.vote;
+  $('.take-title', el).textContent = `Toma ${n}`;
+  $('.take-tag', el).textContent = run.mode === 'single' ? 'individual' : run.blind ? 'arena · a ciegas' : 'arena';
+  $('.take-time', el).textContent = new Date(run.createdAt).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+  $('.status-text', el).textContent =
+    hidden && result.status === 'done'
+      ? 'Lista: escúchala abajo, a ciegas'
+      : result.status === 'error'
+        ? result.message
+        : result.message && ACTIVE.has(result.status) ? result.message : result.status === 'done' ? '' : STATUS_TEXT[result.status];
+
+  const audio = $('audio', el);
+  const showAudio = result.status === 'done' && !hidden;
+  audio.hidden = !showAudio;
+  if (showAudio && audio.dataset.src !== result.audioUrl) {
+    audio.dataset.src = result.audioUrl;
+    audio.src = result.audioUrl;
+  }
+  $('.metrics', el).replaceChildren(...(showAudio ? metricList(result.metrics) : []));
+
+  const view = takeView(model, take);
+  const diffEl = $('.take-diff', el);
+  if (hidden) diffEl.replaceChildren();
+  else if (!prev) diffEl.replaceChildren(h('p', { class: 'hint' }, `Primera toma de este texto · semilla ${view.seed.text}`));
+  else {
+    const changes = diffViews(takeView(model, prev), view);
+    diffEl.replaceChildren(
+      ...(changes.length
+        ? [h('p', { class: 'hint' }, `Cambios frente a la toma ${prev.n}:`), h('ul', { class: 'diff' }, changes)]
+        : [h('p', { class: 'hint' }, `Mismos ajustes que la toma ${prev.n}.`)]),
+    );
+  }
+  $('.take-config dl', el).replaceChildren(...Object.values(view).map((v) => h('div', {}, h('dt', {}, v.label), h('dd', {}, v.text))));
+  $('.take-config', el).hidden = hidden;
+  $('.take-actions', el).hidden = hidden || ACTIVE.has(result.status);
+
+  const log = $('.log', el);
+  log.hidden = !(result.status === 'error' && result.log?.length);
+  if (!log.hidden) $('pre', log).textContent = result.log.join('\n');
+}
+
+function renderTakes(strip, model) {
+  const takes = takesFor(model.id);
+  const list = $('.takes', strip);
+  $('.takes-empty', strip).hidden = takes.length > 0;
+  // Reconciliación por clave para no recrear (ni cortar) los audios que ya existen.
+  const existing = new Map([...list.children].map((el) => [el.dataset.key, el]));
+  const ordered = [...takes].reverse().map((take) => {
+    const key = `${take.run.id}:${model.id}`;
+    let el = existing.get(key);
+    if (el) existing.delete(key);
+    else {
+      el = createTakeEl(model);
+      el.dataset.key = key;
+    }
+    updateTakeEl(el, model, take, takes[take.n - 2], takes.length);
+    return el;
+  });
+  for (const el of existing.values()) el.remove();
+  ordered.forEach((el, i) => {
+    if (list.children[i] !== el) list.insertBefore(el, list.children[i] ?? null);
+  });
+  refreshPending(model.id);
+}
+
+function renderOutputs() {
+  for (const strip of $$('.strip')) {
+    const model = state.models.find((m) => m.id === strip.dataset.model);
+    if (model) renderTakes(strip, model);
+  }
+  renderBlindPanel(state.runs.get(state.currentRunId));
   updateGenerateButton();
+}
+
+function loadTake(model, { result, n }) {
+  applyConfig(model, { ...result.params, seed: takeSeed(result) }, result.useReference);
+  const strip = $(`.strip[data-model="${model.id}"]`);
+  $('.preset-status', strip).textContent = `Ajustes de la toma ${n} cargados (con su semilla, para reproducirla).`;
+}
+
+function toggleTakeSave(el) {
+  const form = $('.take-save', el);
+  form.hidden = !form.hidden;
+  if (form.hidden) return;
+  const input = $('input', form);
+  if (!input.value) input.value = `Toma ${el._take.n} · ${new Date(el._take.run.createdAt).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' })}`;
+  input.select();
+}
+
+async function discardTake({ run, result }) {
+  try {
+    const updated = await api(`/api/runs/${run.id}/results/${result.model}`, { method: 'DELETE' });
+    if (updated.id) state.runs.set(updated.id, updated);
+    else {
+      state.runs.delete(run.id);
+      if (state.currentRunId === run.id) state.currentRunId = null;
+    }
+    renderOutputs();
+    if (!$('#view-history').hidden) renderHistory();
+  } catch (err) {
+    showError(err.message);
+  }
 }
 
 function renderBlindPanel(run) {
@@ -396,7 +705,7 @@ async function vote(runId, winner) {
   try {
     const run = await api(`/api/runs/${runId}/vote`, { method: 'POST', body: { winner } });
     state.runs.set(run.id, run);
-    renderCurrentRun();
+    renderOutputs();
     if (!$('#view-history').hidden) renderHistory();
   } catch (err) {
     showError(err.message);
@@ -434,7 +743,7 @@ function renderHistory() {
   container.replaceChildren(
     ...runs.map((run) => {
       const date = new Date(run.createdAt).toLocaleString('es', { dateStyle: 'medium', timeStyle: 'short' });
-      const info = [date, run.voice ? `voz: ${run.voice.name}` : 'sin voz de referencia', run.blind ? 'a ciegas' : null, run.vote ? (run.vote.winner === 'tie' ? 'votado: empate' : 'votado') : null].filter(Boolean).join(', ');
+      const info = [date, run.voice ? `voz: ${run.voice.name}` : 'sin voz de referencia', run.mode === 'single' ? 'toma individual' : null, run.blind ? 'a ciegas' : null, run.vote ? (run.vote.winner === 'tie' ? 'votado: empate' : 'votado') : null].filter(Boolean).join(', ');
       return h('article', { class: 'run' },
         h('div', { class: 'run-head' },
           h('div', {}, h('p', { class: 'run-text' }, run.text), h('p', { class: 'run-info' }, info)),
@@ -450,7 +759,7 @@ function renderHistory() {
               r.status === 'done'
                 ? [
                     h('audio', { controls: true, preload: 'none', src: r.audioUrl }),
-                    h('p', { class: 'small-metrics' }, `${m.audio_seconds} s de audio en ${m.gen_seconds} s (RTF ${m.rtf}), ${m.peak_memory_gb} GB, carga ${m.load_seconds} s`),
+                    h('p', { class: 'small-metrics' }, `${m.audio_seconds} s de audio en ${m.gen_seconds} s (RTF ${m.rtf}), ${m.peak_memory_gb} GB, carga ${m.load_seconds} s${r.seedUsed ? `, semilla ${r.seedUsed}` : ''}`),
                     h('a', { class: 'link', href: r.audioUrl, download: `${run.id}_${r.model}.wav` }, 'Descargar WAV'),
                   ]
                 : h('p', { class: r.status === 'error' ? 'error' : 'hint' }, r.status === 'error' ? r.message : STATUS_TEXT[r.status]));
@@ -466,7 +775,8 @@ function reuseRun(run) {
     const model = state.models.find((m) => m.id === r.model);
     if (!model) continue;
     const s = modelSettings(model);
-    s.params = { ...model.defaults, ...r.params };
+    // Con la semilla realmente usada para poder reproducir el resultado.
+    s.params = { ...model.defaults, ...r.params, seed: takeSeed(r) };
     s.useReference = r.useReference;
   }
   for (const m of state.models) modelSettings(m).enabled = m.ready && Boolean(run.results[m.id]);
@@ -483,7 +793,7 @@ async function deleteRun(id) {
   state.runs.delete(id);
   if (state.currentRunId === id) state.currentRunId = null;
   renderHistory();
-  renderCurrentRun();
+  renderOutputs();
 }
 
 // ---------- Ranking ----------
@@ -657,8 +967,10 @@ function connectEvents() {
     // Reconectado: resincroniza lo que cambió mientras el servidor no estaba.
     try {
       for (const r of await api('/api/runs')) state.runs.set(r.id, r);
+      state.presets = await api('/api/presets');
+      renderPresetSelects();
       if ($('#error').textContent === OFFLINE_MSG) showError(null);
-      renderCurrentRun();
+      renderOutputs();
       updateGenerateButton();
     } catch {}
   });
@@ -668,26 +980,33 @@ function connectEvents() {
   es.addEventListener('run', (e) => {
     const run = JSON.parse(e.data);
     state.runs.set(run.id, run);
-    if (run.id === state.currentRunId) renderCurrentRun();
+    renderOutputs();
     if (!$('#view-history').hidden) renderHistory();
   });
   es.addEventListener('run-deleted', (e) => {
     state.runs.delete(JSON.parse(e.data).id);
+    renderOutputs();
     if (!$('#view-history').hidden) renderHistory();
+  });
+  es.addEventListener('presets', (e) => {
+    state.presets = JSON.parse(e.data);
+    renderPresetSelects();
   });
 }
 
 // ---------- Inicio ----------
 
 async function init() {
-  const [models, runs] = await Promise.all([api('/api/models'), api('/api/runs')]);
+  const [models, runs, presets] = await Promise.all([api('/api/models'), api('/api/runs'), api('/api/presets')]);
   state.models = models;
+  state.presets = presets;
   for (const r of runs) state.runs.set(r.id, r);
-  // Retoma la corrida más reciente si sigue en curso.
-  const active = runs.find((r) => Object.values(r.results).some((x) => ACTIVE.has(x.status)));
-  state.currentRunId = active?.id ?? runs[0]?.id ?? null;
+  // Retoma la corrida de arena más reciente (la que alimenta la escucha a ciegas).
+  const arena = runs.filter((r) => r.mode !== 'single');
+  state.currentRunId = (arena.find(runActive) ?? arena[0])?.id ?? null;
   await loadVoices();
   renderStrips();
+  renderPresetSelects();
   connectEvents();
 }
 

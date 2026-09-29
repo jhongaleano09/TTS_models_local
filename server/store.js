@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { BUILTIN_VOICES_DIR, DATA_DIR, OUTPUTS_DIR, VOICES_DIR } from './paths.js';
@@ -70,5 +71,31 @@ export function deleteVoice(id) {
   if (!voice) return false;
   rmSync(voice.file, { force: true });
   writeJson(VOICES_FILE, custom.filter((v) => v.id !== id));
+  return true;
+}
+
+// ---------- Ajustes guardados (presets por modelo) ----------
+
+const PRESETS_FILE = join(DATA_DIR, 'presets.json');
+
+export const listPresets = () => readJson(PRESETS_FILE, []);
+
+// Guardar con un nombre que ya existe para ese modelo lo sobrescribe.
+export function savePreset({ model, name, params, useReference }) {
+  const presets = listPresets();
+  const existing = presets.find((p) => p.model === model && p.name.toLowerCase() === name.toLowerCase());
+  const now = new Date().toISOString();
+  const preset = existing
+    ? Object.assign(existing, { name, params, useReference, updatedAt: now })
+    : { id: `p_${randomUUID().slice(0, 8)}`, model, name, params, useReference, createdAt: now, updatedAt: now };
+  if (!existing) presets.push(preset);
+  writeJson(PRESETS_FILE, presets);
+  return preset;
+}
+
+export function deletePreset(id) {
+  const presets = listPresets();
+  if (!presets.some((p) => p.id === id)) return false;
+  writeJson(PRESETS_FILE, presets.filter((p) => p.id !== id));
   return true;
 }
