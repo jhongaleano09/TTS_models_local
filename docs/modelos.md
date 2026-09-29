@@ -104,7 +104,7 @@ Diálogos: `<|speaker:0|>Hola. <|speaker:1|>¿Qué tal?` (la voz de referencia e
 
 La **Instrucción de estilo** (`instruct`) complementa las etiquetas con un tono global, p. ej. "Presentadora de noticias latinoamericana, cercana y dinámica, con cambios de ritmo". Las etiquetas controlan momentos concretos y la instrucción, el conjunto.
 
-Los accesos rápidos de la Arena (`public/samples.js`) son seis guiones de noticiero ya etiquetados con estas reglas.
+Los accesos rápidos de la Arena (`public/samples.js`) son seis guiones de noticiero ya etiquetados con estas reglas. Cada uno rellena también la instrucción de estilo de Fish con el tono que le corresponde; se puede editar antes de generar.
 
 **Textos largos:** mlx-audio solo aplica `chunk_length` si el texto trae etiquetas de hablante; sin ellas manda todo en un bloque y el audio se corta en `max_tokens` (≈ 47 s con 1024). El worker divide el texto por oraciones en turnos `<|speaker:0|>` de hasta `chunk_length` bytes. Con un guion de 2100 caracteres: 134 s de audio en 9 bloques, RTF 1.72, pico de 12.5 GB.
 

@@ -106,9 +106,20 @@ textEl.addEventListener('input', () => {
 });
 updateCounter();
 
+// El acceso rápido también fija la instrucción de estilo de Fish (tono global del guion).
+function applySample(text, instruct) {
+  textEl.value = text;
+  textEl.dispatchEvent(new Event('input'));
+  const fish = state.models.find((m) => m.id === 'fish');
+  if (!fish) return;
+  modelSettings(fish).params.instruct = instruct;
+  saveSettings();
+  renderStrips();
+}
+
 $('#samples').append(
-  ...SAMPLES.map(([label, text]) =>
-    h('button', { class: 'chip', type: 'button', onclick: () => { textEl.value = text; textEl.dispatchEvent(new Event('input')); } }, label),
+  ...SAMPLES.map(([label, instruct, text]) =>
+    h('button', { class: 'chip', type: 'button', title: `Estilo para Fish: ${instruct}`, onclick: () => applySample(text, instruct) }, label),
   ),
 );
 

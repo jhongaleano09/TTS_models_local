@@ -2,10 +2,12 @@
 // Fish las interpreta y el servidor las elimina del texto que reciben Chatterbox y Qwen.
 // Regla de uso: la etiqueta va justo antes de las palabras que modifica, y con moderación
 // (una o dos por párrafo); si todo lleva énfasis, nada destaca.
+// Formato: [etiqueta del botón, instrucción de estilo de Fish (tono global), texto].
 
 export const SAMPLES = [
   [
     'IA, hardware y voz',
+    'Presentadora de noticias de tecnología latinoamericana, cercana y dinámica. Ritmo ágil en los titulares y más pausado y reflexivo al hablar de la voz; marca bien el contraste entre las dos frases de ejemplo.',
     `Es lunes, veintiocho de septiembre, y comenzamos nuestro recorrido diario por las noticias más interesantes de inteligencia artificial, tecnología y startups.
 
 [short pause] Primera parada: [emphasis] inteligencia artificial.
@@ -42,6 +44,7 @@ Y justamente esa capacidad de interpretar el texto será una de las pruebas más
   ],
   [
     'Nombres, cifras y siglas',
+    'Presentadora de podcast tecnológico, clara y precisa, con energía de apertura. Pronuncia los nombres en inglés con naturalidad y cada sigla y cifra con cuidado; la primera frase final incrédula y emocionada, la segunda serena y segura.',
     `[excited] Hola. Comenzamos una nueva edición de nuestro resumen diario.
 
 Hoy tenemos inteligencia artificial, nuevos modelos, herramientas para desarrolladores y una pequeña sección dedicada a proyectos que podemos ejecutar localmente.
@@ -100,6 +103,7 @@ Un buen modelo debería entender que esas dos frases [emphasis] no deberían son
   ],
   [
     'Resumen: agentes',
+    'Presentadora de noticiero matutino, cálida y segura, con tono de bienvenida. Ritmo medio, énfasis en las ideas clave y curiosidad genuina en la pregunta sobre voces humanas.',
     `[warm tone] Buenos días. Bienvenido a tu resumen diario de inteligencia artificial, tecnología y negocios.
 
 Hoy tenemos varias historias interesantes, pero hay una idea que conecta prácticamente todas: [short pause] los modelos de inteligencia artificial están dejando de ser solamente herramientas que responden preguntas, [emphasis] y comienzan a convertirse en sistemas capaces de ejecutar tareas completas.
@@ -126,6 +130,7 @@ Ese será uno de los temas que seguiremos observando durante los próximos días
   ],
   [
     'Ciberseguridad',
+    'Periodista de investigación, tono serio y cercano, ligeramente preocupado. Ritmo pausado; la llamada falsa en voz baja y confidencial, y las recomendaciones firmes y claras.',
     `Comenzamos con una historia que mezcla inteligencia artificial, ciberseguridad y algo que cada vez será más importante: [short pause] verificar quién está [emphasis] realmente al otro lado de una conversación.
 
 Durante años, una llamada telefónica parecía suficiente para reconocer a una persona. Su voz, su manera de hablar y hasta sus pequeñas pausas funcionaban como una especie de firma personal.
@@ -166,6 +171,7 @@ La seguridad, por tanto, tendrá que evolucionar al mismo ritmo.`,
   ],
   [
     'Espacio y autonomía',
+    'Narradora de documental de divulgación científica, con asombro contenido. Ritmo lento y evocador, silencios marcados en la secuencia de la instrucción que viaja y tono reflexivo en la pregunta final.',
     `Ahora cambiamos completamente de escenario.
 
 Dejamos los servidores, los centros de datos y las pantallas para mirar hacia arriba.
@@ -224,6 +230,7 @@ Deben reconocer obstáculos, analizar el terreno y tomar pequeñas decisiones si
   ],
   [
     'Negocios y números',
+    'Analista financiera en un noticiero económico, segura y didáctica. Ritmo claro y medido, pausa antes de revelar cada cifra y énfasis nítido en números, porcentajes y siglas.',
     `Pasemos ahora a negocios.
 
 Imagina una pequeña empresa que factura cien millones de pesos al mes.
