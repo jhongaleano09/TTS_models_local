@@ -1,3 +1,5 @@
+import { SAMPLES } from './samples.js';
+
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
@@ -45,14 +47,6 @@ const STATUS_TEXT = {
 };
 const ACTIVE = new Set(['queued', 'loading', 'loaded', 'generating']);
 const LETTERS = 'ABCDEFGH';
-
-const SAMPLES = [
-  ['Saludo', '¡Hola! ¿Qué onda? Hoy hace un clima padrísimo para salir a caminar.'],
-  ['Narración', 'Aquella tarde, cuando el sol ya se escondía detrás de los cerros, Mariana entendió que no había vuelta atrás. Respiró hondo, tomó la carta y salió sin mirar atrás.'],
-  ['Atención al cliente', 'Gracias por comunicarte con nosotros. Tu pedido número cuatro mil ciento veintiséis ya fue despachado y llegará entre el martes y el jueves.'],
-  ['Expresivo (Fish)', 'No te lo vas a creer [laughing] ¡me gané el primer lugar! [short pause] [whisper] Pero no se lo digas a nadie todavía.'],
-  ['Números y siglas', 'El 15 de septiembre de 2026 la inflación en México cerró en 3,8 % según el INEGI, y el dólar se cotizó en 17,45 pesos.'],
-];
 
 const state = {
   models: [],

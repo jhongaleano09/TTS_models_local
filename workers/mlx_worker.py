@@ -1,5 +1,6 @@
 """Worker MLX (mlx-audio) para Qwen3-TTS 1.7B Base 4-bit y Fish Audio S2 Pro 4-bit."""
 
+import re
 from pathlib import Path
 
 import mlx.core as mx
@@ -30,6 +31,42 @@ def qwen_kwargs(job: dict, model) -> dict:
         if job.get("ref_text"):
             kwargs["ref_text"] = job["ref_text"]
     return kwargs
+
+
+SPEAKER_TAG = re.compile(r"(<\|speaker:\d+\|>)")
+# Fin de oración (o salto de línea) seguido de espacio: nunca corta dentro de una etiqueta [..].
+SENTENCE_END = re.compile(r"(?<=[.!?…:;»”\"])\s+|\n+")
+
+
+def fish_turns(text: str, chunk_length: int) -> str:
+    """Divide el texto en turnos <|speaker:N|> de hasta chunk_length bytes.
+
+    mlx-audio solo aplica chunk_length cuando el texto trae etiquetas de hablante; sin ellas
+    envía todo en un único bloque y el audio se corta al llegar a max_tokens (~47 s con 1024).
+    """
+    parts = SPEAKER_TAG.split(text)
+    if len(parts) == 1:
+        parts = ["<|speaker:0|>", text]
+    elif parts[0].strip():
+        parts = ["<|speaker:0|>", parts[0], *parts[1:]]
+    else:
+        parts = parts[1:]
+
+    turns = []
+    for tag, body in zip(parts[0::2], parts[1::2]):
+        chunk = ""
+        for sentence in (s.strip() for s in SENTENCE_END.split(body)):
+            if not sentence:
+                continue
+            candidate = f"{chunk} {sentence}".strip()
+            if chunk and len(candidate.encode("utf-8")) > chunk_length:
+                turns.append(tag + chunk)
+                chunk = sentence
+            else:
+                chunk = candidate
+        if chunk:
+            turns.append(tag + chunk)
+    return "".join(turns)
 
 
 def fish_kwargs(job: dict, model) -> dict:
@@ -78,7 +115,10 @@ def main(job: dict) -> None:
     pieces = []
     emit("status", stage="generating", message="Generando audio…", progress=0)
     with Timer() as t_gen:
-        for i, result in enumerate(model.generate(text=job["text"], **kwargs)):
+        text = job["text"]
+        if model_id == "fish":
+            text = fish_turns(text, int(job["params"]["chunk_length"]))
+        for i, result in enumerate(model.generate(text=text, **kwargs)):
             pieces.append(np.array(result.audio, dtype=np.float32))
             emit("status", stage="generating", message=f"Segmento {i + 1} listo")
 

@@ -72,7 +72,7 @@ export const MODELS = [
     size: '≈ 4.4 GB',
     summary: 'El mayor techo expresivo: etiquetas inline como [whisper], [laughing], [sigh]. 16 GB es el mínimo recomendado.',
     reference: { supported: true, needsText: true, note: 'Clonación con audio + transcripción. Sin transcripción la clonación pierde calidad.' },
-    textHint: 'Admite etiquetas inline: [pause] [emphasis] [whisper] [laughing] [sigh] [excited] [sad] [angry] [low voice]… y <|speaker:0|> para diálogos.',
+    textHint: 'Etiquetas entre corchetes justo antes de las palabras que modifican: [pause] [short pause] [emphasis] [whisper] [low voice] [excited] [surprised] [sigh] [laughing]… Úsalas con moderación (1–2 por párrafo). Los otros modelos reciben el texto sin etiquetas. <|speaker:0|> / <|speaker:1|> para diálogos.',
     attribution: 'Built with Fish Audio',
     params: [
       { key: 'instruct', label: 'Instrucción de estilo', type: 'textarea', default: '', help: 'Descripción libre del estilo, p. ej. "Narradora cálida, acento mexicano, ritmo pausado".' },
@@ -81,7 +81,7 @@ export const MODELS = [
       { key: 'top_k', label: 'Top-k', type: 'number', min: 1, max: 200, step: 1, default: 30 },
       { key: 'speed', label: 'Velocidad', type: 'slider', min: 0.5, max: 2, step: 0.05, default: 1.0, help: 'Post-procesado del audio generado.' },
       { key: 'max_tokens', label: 'Máx. tokens por bloque', type: 'number', min: 256, max: 4096, step: 128, default: 1024, advanced: true, help: '≈ 21.5 tokens por segundo de audio.' },
-      { key: 'chunk_length', label: 'Bytes por bloque', type: 'number', min: 100, max: 1000, step: 50, default: 300, advanced: true, help: 'Textos largos se generan por bloques manteniendo el contexto.' },
+      { key: 'chunk_length', label: 'Bytes por bloque', type: 'number', min: 100, max: 1000, step: 50, default: 300, advanced: true, help: 'El texto se divide por oraciones en bloques de este tamaño, generados en orden y manteniendo el contexto de la voz.' },
       seedParam,
     ],
   },

@@ -76,11 +76,37 @@ La variante **Base** no trae voces predefinidas. Tres modos según la referencia
 | `top_k` | 1 – 200 | 30 | |
 | `speed` | 0.5 – 2 | 1.0 | Cambio de velocidad posterior a la generación. |
 | `max_tokens` | 256 – 4096 | 1024 | Por bloque (≈ 21.5 tokens por segundo de audio). |
-| `chunk_length` | 100 – 1000 | 300 | Bytes de texto por bloque en textos largos (mantiene el contexto). |
+| `chunk_length` | 100 – 1000 | 300 | Bytes de texto por bloque. El worker divide por oraciones y genera los bloques en orden, manteniendo el contexto. |
 | `seed` | entero | 0 | |
 
-**Etiquetas inline** (solo Fish; el servidor las elimina del texto que reciben los otros modelos):
-`[pause]` `[short pause]` `[emphasis]` `[whisper]` `[low voice]` `[laughing]` `[chuckle]` `[sigh]` `[inhale]` `[exhale]` `[excited]` `[sad]` `[angry]` `[surprised]` `[shouting]` `[volume up]` `[volume down]` `[clearing throat]`… Acepta descripciones libres entre corchetes. Para diálogos: `<|speaker:0|>Hola. <|speaker:1|>¿Qué tal?`
+### Cómo usar las etiquetas de Fish
+
+Fish S2 Pro acepta instrucciones en lenguaje natural entre corchetes, **dentro del texto**. Sin ellas lee de forma correcta pero plana; son lo que le da contraste. El servidor las elimina del texto que reciben Chatterbox y Qwen, así que un mismo texto etiquetado sirve para comparar los tres.
+
+Reglas prácticas:
+
+1. **La etiqueta va justo antes de lo que modifica.** `Ahora importan mucho más [emphasis] la velocidad…` enfatiza "la velocidad"; ponerla al final de la frase no sirve.
+2. **Con moderación: una o dos por párrafo.** Si todo lleva `[emphasis]`, nada destaca y el modelo tiende a sonar forzado.
+3. **Las pausas se escriben, no se deducen.** `[short pause]` antes de una revelación ("…que merece atención: [short pause] [emphasis] los modelos abiertos.") o `[pause]` para cambiar de bloque. Los puntos suspensivos ayudan, pero la etiqueta es más fiable.
+4. **Una emoción al inicio de la frase afecta a toda la frase.** `[surprised] “No puede ser… [short pause] [excited] ¿de verdad consiguió hacerlo?”` cambia de sorpresa a entusiasmo a mitad de la cita.
+5. **Deja algo sin etiquetar para contrastar.** En "IA, hardware y voz", la segunda versión de "Después de varios intentos, finalmente funcionó" va sin etiquetas a propósito.
+6. **Escribe números y siglas como quieres oírlos** ("cuatro punto ocho gigabytes"); las etiquetas no corrigen la normalización.
+
+| Tipo | Etiquetas |
+|---|---|
+| Ritmo | `[pause]` `[short pause]` `[emphasis]` `[interrupting]` |
+| Volumen | `[whisper]` `[low voice]` `[low volume]` `[volume up]` `[volume down]` `[loud]` `[shouting]` |
+| Emoción | `[excited]` `[surprised]` `[shocked]` `[sad]` `[angry]` `[delight]` `[excited tone]` `[laughing tone]` |
+| Sonidos | `[sigh]` `[inhale]` `[exhale]` `[laughing]` `[chuckle]` `[clearing throat]` `[tsk]` `[panting]` |
+| Libres | Cualquier descripción corta: `[serious]` `[calm]` `[curious]` `[warm tone]`. Las etiquetas en inglés son las más fiables porque son las del entrenamiento. |
+
+Diálogos: `<|speaker:0|>Hola. <|speaker:1|>¿Qué tal?` (la voz de referencia es el hablante 0).
+
+La **Instrucción de estilo** (`instruct`) complementa las etiquetas con un tono global, p. ej. "Presentadora de noticias latinoamericana, cercana y dinámica, con cambios de ritmo". Las etiquetas controlan momentos concretos y la instrucción, el conjunto.
+
+Los accesos rápidos de la Arena (`public/samples.js`) son seis guiones de noticiero ya etiquetados con estas reglas.
+
+**Textos largos:** mlx-audio solo aplica `chunk_length` si el texto trae etiquetas de hablante; sin ellas manda todo en un bloque y el audio se corta en `max_tokens` (≈ 47 s con 1024). El worker divide el texto por oraciones en turnos `<|speaker:0|>` de hasta `chunk_length` bytes. Con un guion de 2100 caracteres: 134 s de audio en 9 bloques, RTF 1.72, pico de 12.5 GB.
 
 La clonación usa audio + transcripción; sin transcripción pierde precisión.
 
