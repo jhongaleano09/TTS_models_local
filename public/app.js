@@ -15,12 +15,20 @@ function h(tag, attrs = {}, ...children) {
   return el;
 }
 
+const OFFLINE_MSG = 'No hay conexión con el servidor. Arráncalo con «npm run dev» en la carpeta del proyecto; la página se reconecta sola.';
+
 async function api(path, options = {}) {
-  const res = await fetch(path, {
-    ...options,
-    headers: { 'Content-Type': 'application/json', ...options.headers },
-    body: options.body && typeof options.body !== 'string' ? JSON.stringify(options.body) : options.body,
-  });
+  let res;
+  try {
+    res = await fetch(path, {
+      ...options,
+      headers: { 'Content-Type': 'application/json', ...options.headers },
+      body: options.body && typeof options.body !== 'string' ? JSON.stringify(options.body) : options.body,
+    });
+  } catch {
+    // fetch solo rechaza por fallos de red: el servidor no está corriendo o se reinició.
+    throw new Error(OFFLINE_MSG);
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
   return data;
@@ -624,6 +632,22 @@ async function loadVoices(rerenderList = true) {
 
 function connectEvents() {
   const es = new EventSource('/api/events');
+  let lost = false;
+  es.addEventListener('error', () => {
+    lost = true;
+    showError(OFFLINE_MSG);
+  });
+  es.addEventListener('open', async () => {
+    if (!lost) return;
+    lost = false;
+    // Reconectado: resincroniza lo que cambió mientras el servidor no estaba.
+    try {
+      for (const r of await api('/api/runs')) state.runs.set(r.id, r);
+      if ($('#error').textContent === OFFLINE_MSG) showError(null);
+      renderCurrentRun();
+      updateGenerateButton();
+    } catch {}
+  });
   es.addEventListener('queue', (e) => {
     renderChain(JSON.parse(e.data));
   });
@@ -653,4 +677,8 @@ async function init() {
   connectEvents();
 }
 
-init().catch((err) => showError(`No se pudo conectar con el servidor: ${err.message}`));
+init().catch((err) => {
+  showError(err.message === OFFLINE_MSG ? OFFLINE_MSG : `No se pudo iniciar la interfaz: ${err.message}`);
+  // Reintenta hasta que el servidor responda.
+  setTimeout(() => location.reload(), 3000);
+});

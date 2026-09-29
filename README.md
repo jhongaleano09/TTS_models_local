@@ -56,6 +56,10 @@ Navegador ──HTTP/SSE──▶ Node (Express)
 - Hay **dos entornos Python** porque Chatterbox fija `transformers 4.46` y `mlx-audio` exige `≥ 5.14`.
 - Los resultados se guardan en `outputs/runs/<id>/` (WAV + `run.json`); las voces subidas en `data/voices/`.
 
+## Problemas frecuentes
+
+- **"No hay conexión con el servidor"** (antes, "Failed to fetch"): la página está abierta pero el servidor no corre. Arráncalo con `npm run dev`; la página se reconecta sola. Si se detiene a mitad de una generación, esa corrida queda como cancelada.
+
 ## Licencias de los modelos
 
 - Chatterbox: MIT (con marca de agua Perth en el audio).
