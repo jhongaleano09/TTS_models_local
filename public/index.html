@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TTS Arena local</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='9' fill='%23D63A2A'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <h1>TTS Arena local</h1>
+      <p class="brand-sub">Un modelo a la vez, en tu Mac.</p>
+    </div>
+    <div class="chain" id="chain" aria-live="polite" aria-label="Estado de la cola"></div>
+    <nav class="tabs" role="tablist">
+      <button role="tab" class="tab" data-tab="arena" aria-selected="true">Arena</button>
+      <button role="tab" class="tab" data-tab="history" aria-selected="false">Historial</button>
+      <button role="tab" class="tab" data-tab="ranking" aria-selected="false">Ranking</button>
+      <button role="tab" class="tab" data-tab="voices" aria-selected="false">Voces</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ARENA -->
+    <section class="view" id="view-arena">
+      <div class="composer">
+        <div class="field text-field">
+          <div class="field-head">
+            <label for="text">Texto a sintetizar</label>
+            <span class="counter" id="counter">0 / 3000</span>
+          </div>
+          <textarea id="text" rows="5" maxlength="3000" placeholder="Escribe lo que quieres escuchar. Ej.: ¿Vamos por unos tacos y un agua de horchata después del trabajo?"></textarea>
+          <div class="samples" id="samples"></div>
+        </div>
+
+        <aside class="field voice-field">
+          <label for="voice">Voz de referencia</label>
+          <select id="voice"></select>
+          <audio id="voice-preview" controls preload="none"></audio>
+          <p class="hint" id="voice-transcript"></p>
+          <button class="link" data-goto="voices">Añadir o grabar una voz</button>
+        </aside>
+      </div>
+
+      <div class="strips" id="strips"></div>
+
+      <div class="actionbar">
+        <label class="switch">
+          <input type="checkbox" id="blind">
+          <span>Escucha a ciegas</span>
+        </label>
+        <p class="hint" id="action-hint">Los modelos se ejecutan en orden; cada uno libera la memoria antes del siguiente.</p>
+        <button class="btn ghost" id="cancel" hidden>Detener</button>
+        <button class="btn primary" id="generate">Generar con 0 modelos</button>
+      </div>
+      <p class="error" id="error" role="alert" hidden></p>
+
+      <section class="blind-panel" id="blind-panel" hidden>
+        <h2>¿Cuál suena más humano?</h2>
+        <p class="hint">Los nombres se revelan después de votar.</p>
+        <div class="blind-grid" id="blind-grid"></div>
+      </section>
+    </section>
+
+    <!-- HISTORIAL -->
+    <section class="view" id="view-history" hidden>
+      <div class="view-head">
+        <h2>Historial</h2>
+        <p class="hint">Cada generación queda guardada en <code>outputs/runs/</code>.</p>
+      </div>
+      <div id="history"></div>
+    </section>
+
+    <!-- RANKING -->
+    <section class="view" id="view-ranking" hidden>
+      <div class="view-head">
+        <h2>Ranking</h2>
+        <p class="hint">Cuenta los votos de las comparaciones con dos o más modelos terminados. Un RTF menor que 1 significa más rápido que tiempo real.</p>
+      </div>
+      <div id="ranking"></div>
+    </section>
+
+    <!-- VOCES -->
+    <section class="view" id="view-voices" hidden>
+      <div class="view-head">
+        <h2>Voces de referencia</h2>
+        <p class="hint">Entre 5 y 15 segundos de una sola persona, sin música ni ruido. Qwen3-TTS y Fish clonan mejor si incluyes la transcripción exacta.</p>
+      </div>
+      <form class="voice-form" id="voice-form">
+        <div class="field">
+          <label for="vf-name">Nombre</label>
+          <input id="vf-name" required placeholder="Ej.: Locutor colombiano">
+        </div>
+        <div class="field">
+          <span class="label">Audio</span>
+          <div class="audio-input">
+            <label class="btn ghost file-btn">Elegir archivo<input type="file" id="vf-file" accept="audio/*" hidden></label>
+            <button type="button" class="btn ghost" id="vf-record">Grabar</button>
+            <span class="hint" id="vf-audio-status">Sin audio</span>
+          </div>
+          <audio id="vf-preview" controls hidden></audio>
+        </div>
+        <div class="field">
+          <label for="vf-transcript">Transcripción</label>
+          <textarea id="vf-transcript" rows="2" placeholder="Lo que se dice en el audio. Déjalo vacío para transcribir con Whisper."></textarea>
+        </div>
+        <button class="btn primary" type="submit" id="vf-submit">Guardar voz</button>
+      </form>
+      <div id="voices-list"></div>
+    </section>
+  </main>
+
+  <template id="tpl-strip">
+    <article class="strip">
+      <header class="strip-head">
+        <label class="strip-toggle">
+          <input type="checkbox" class="enabled">
+          <span class="lamp" aria-hidden="true"></span>
+          <span class="strip-name"></span>
+        </label>
+        <p class="strip-meta"></p>
+        <p class="strip-summary"></p>
+        <p class="strip-unready error" hidden></p>
+      </header>
+      <div class="strip-body">
+        <label class="switch small ref-toggle"><input type="checkbox" class="use-ref"><span>Usar voz de referencia</span></label>
+        <p class="hint ref-note"></p>
+        <div class="params"></div>
+        <details class="advanced"><summary>Ajustes avanzados</summary><div class="params-adv"></div></details>
+        <div class="strip-tools">
+          <button class="link reset">Restablecer valores</button>
+        </div>
+        <p class="hint text-hint"></p>
+      </div>
+      <footer class="output">
+        <div class="status"><span class="status-dot"></span><span class="status-text">Sin generar</span></div>
+        <audio controls preload="none" hidden></audio>
+        <dl class="metrics"></dl>
+        <details class="log" hidden><summary>Registro</summary><pre></pre></details>
+      </footer>
+    </article>
+  </template>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

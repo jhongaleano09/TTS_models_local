@@ -148,6 +148,14 @@ function enqueueRun(run, voice) {
   }
 }
 
+// Las etiquetas expresivas de Fish ([laughing], <|speaker:0|>) las leerían en voz alta los demás modelos.
+const stripFishTags = (text) =>
+  text
+    .replace(/<\|speaker:\d+\|>/g, ' ')
+    .replace(/\[[^\]\n]{1,40}\]/g, ' ')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+
 async function executeModel(run, model, voice, ctx) {
   const result = run.results[model.id];
   if (ctx.cancelled) return;
@@ -161,7 +169,7 @@ async function executeModel(run, model, voice, ctx) {
   const fileName = `${model.id}.wav`;
   const job = {
     model: model.id,
-    text: run.text,
+    text: model.id === 'fish' ? run.text : stripFishTags(run.text),
     params: result.params,
     ref_audio: result.useReference ? voice.file : null,
     ref_text: result.useReference ? voice.transcript || null : null,
@@ -327,6 +335,15 @@ app.post('/api/voices/:id/transcribe', (req, res) => {
     if (!settled) queue.cancel(`transcribe:${voice.id}`);
   });
 });
+
+// Al cerrar (Ctrl+C o reinicio de --watch) se mata el worker en curso para no dejar
+// un modelo huérfano ocupando memoria.
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.on(signal, () => {
+    if (queue.current) queue.cancel(queue.current.id);
+    process.exit(0);
+  });
+}
 
 app.listen(PORT, () => {
   console.log(`\n  TTS Arena Local → http://localhost:${PORT}\n`);
