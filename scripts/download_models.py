@@ -1,6 +1,6 @@
 """Descarga previa de los pesos de los modelos del Arena.
 
-Uso:  npm run download [-- chatterbox|qwen|fish|whisper|voices ...]
+Uso:  npm run download [-- chatterbox|qwen|fish|higgs|cosyvoice|whisper|voices ...]
 Sin argumentos descarga todo. Los pesos quedan en la caché de Hugging Face
 (~/.cache/huggingface), salvo Fish 4-bit, que se ensambla en models/.
 """
@@ -23,6 +23,9 @@ FISH_4BIT_REPO = "majentik/fishaudio-s2-pro-MLX-4bit"
 FISH_8BIT_REPO = "mlx-community/fish-audio-s2-pro-8bit"
 FISH_4BIT_DIR = MODELS_DIR / "fish-s2-pro-4bit"
 WHISPER_REPO = "mlx-community/whisper-large-v3-turbo-asr-8bit"
+HIGGS_REPO = "whitelabel/mlx-q6-higgs-tts-3-4b"
+COSYVOICE_REPO = "mlx-community/Fun-CosyVoice3-0.5B-2512-4bit"
+COSYVOICE_S3_REPO = "mlx-community/S3TokenizerV3"
 
 DEFAULT_VOICES = {
     "es_mx_f1.wav": "https://storage.googleapis.com/chatterbox-demo-samples/mtl-v3-single-language-prompts/es-latam/es_mx_f1.wav",
@@ -73,6 +76,23 @@ def fish() -> None:
     log(f"Fish S2 Pro 4-bit ensamblado en {FISH_4BIT_DIR.relative_to(ROOT)}")
 
 
+def higgs() -> None:
+    """Higgs TTS 3 cuantizado a 6 bits para mlx-audio.
+
+    El Q4 de Reza2kn no es un runtime completo y el propio conversor descartó su Q4 por calidad
+    en pruebas de escucha; este Q6 ya trae codec.safetensors y model_type=higgs_audio_v3.
+    """
+    log(f"Higgs TTS 3: {HIGGS_REPO} (~3.7 GB)")
+    snapshot_download(HIGGS_REPO, ignore_patterns=["samples/*"])
+
+
+def cosyvoice() -> None:
+    log(f"CosyVoice3: {COSYVOICE_REPO} (~1.2 GB)")
+    snapshot_download(COSYVOICE_REPO)
+    log(f"CosyVoice3: tokenizer de voz {COSYVOICE_S3_REPO} (~0.45 GB)")
+    snapshot_download(COSYVOICE_S3_REPO)
+
+
 def voices() -> None:
     VOICES_DIR.mkdir(parents=True, exist_ok=True)
     for name, url in DEFAULT_VOICES.items():
@@ -87,7 +107,15 @@ def whisper() -> None:
     snapshot_download(WHISPER_REPO)
 
 
-TASKS = {"voices": voices, "chatterbox": chatterbox, "qwen": qwen, "fish": fish, "whisper": whisper}
+TASKS = {
+    "voices": voices,
+    "chatterbox": chatterbox,
+    "qwen": qwen,
+    "fish": fish,
+    "higgs": higgs,
+    "cosyvoice": cosyvoice,
+    "whisper": whisper,
+}
 
 if __name__ == "__main__":
     selected = sys.argv[1:] or list(TASKS)

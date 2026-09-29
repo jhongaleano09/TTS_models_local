@@ -9,6 +9,7 @@ import { MODELS, defaultsFor, getModel } from './models.js';
 import { OUTPUTS_DIR, PUBLIC_DIR, TMP_DIR, VOICES_DIR, modelReadiness } from './paths.js';
 import { SerialQueue } from './queue.js';
 import * as store from './store.js';
+import { textForModel } from './tags.js';
 import { runWorker } from './worker.js';
 
 const PORT = Number(process.env.PORT) || 5178;
@@ -148,14 +149,6 @@ function enqueueRun(run, voice) {
   }
 }
 
-// Las etiquetas expresivas de Fish ([laughing], <|speaker:0|>) las leerían en voz alta los demás modelos.
-const stripFishTags = (text) =>
-  text
-    .replace(/<\|speaker:\d+\|>/g, ' ')
-    .replace(/\[[^\]\n]{1,40}\]/g, ' ')
-    .replace(/[ \t]{2,}/g, ' ')
-    .trim();
-
 async function executeModel(run, model, voice, ctx) {
   const result = run.results[model.id];
   if (ctx.cancelled) return;
@@ -167,14 +160,25 @@ async function executeModel(run, model, voice, ctx) {
 
   const dir = store.runDir(run.id);
   const fileName = `${model.id}.wav`;
+  // Modelos que siempre clonan (CosyVoice3) usan la voz incluida cuando no hay referencia.
+  const ref = result.useReference ? voice : model.reference.fallbackVoice ? store.getVoice(model.reference.fallbackVoice) : null;
+  if (!ref && model.reference.fallbackVoice) {
+    set({ status: 'error', message: 'Este modelo necesita una voz de referencia. Elige una o ejecuta: npm run download -- voices', finishedAt: new Date().toISOString() });
+    return;
+  }
   const job = {
     model: model.id,
-    text: model.id === 'fish' ? run.text : stripFishTags(run.text),
+    // Cada modelo recibe las etiquetas del guion traducidas a su formato (o eliminadas).
+    text: textForModel(model.id, run.text),
     params: result.params,
-    ref_audio: result.useReference ? voice.file : null,
-    ref_text: result.useReference ? voice.transcript || null : null,
+    ref_audio: ref?.file ?? null,
+    ref_text: ref?.transcript || null,
     output_path: join(dir, fileName),
   };
+  if (!job.text) {
+    set({ status: 'error', message: 'El texto queda vacío sin las etiquetas.', finishedAt: new Date().toISOString() });
+    return;
+  }
 
   const worker = runWorker({
     env: model.env,

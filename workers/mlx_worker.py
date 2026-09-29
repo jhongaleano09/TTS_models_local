@@ -1,4 +1,4 @@
-"""Worker MLX (mlx-audio) para Qwen3-TTS 1.7B Base 4-bit y Fish Audio S2 Pro 4-bit."""
+"""Worker MLX (mlx-audio) para Qwen3-TTS 1.7B Base 4-bit, Fish Audio S2 Pro 4-bit y Higgs TTS 3 6-bit."""
 
 import re
 from pathlib import Path
@@ -6,12 +6,13 @@ from pathlib import Path
 import mlx.core as mx
 import numpy as np
 
-from common import Timer, emit, run, write_wav
+from common import Timer, emit, run, split_sentences, write_wav
 
 ROOT = Path(__file__).resolve().parent.parent
 MODEL_PATHS = {
     "qwen": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-4bit",
     "fish": str(ROOT / "models" / "fish-s2-pro-4bit"),
+    "higgs": "whitelabel/mlx-q6-higgs-tts-3-4b",
 }
 
 
@@ -92,6 +93,61 @@ def fish_kwargs(job: dict, model) -> dict:
 
 BUILDERS = {"qwen": qwen_kwargs, "fish": fish_kwargs}
 
+HIGGS_DELIVERY = {"expresiva": "<|prosody:expressive_high|>", "contenida": "<|prosody:expressive_low|>"}
+HIGGS_PACE = {
+    "muy lento": "<|prosody:speed_very_slow|>",
+    "lento": "<|prosody:speed_slow|>",
+    "rápido": "<|prosody:speed_fast|>",
+    "muy rápido": "<|prosody:speed_very_fast|>",
+}
+HIGGS_TOKEN = re.compile(r"<\|[a-z]+:[a-z_]+\|>")
+# Inicio de oración: comienzo del fragmento o espacio tras un signo de cierre.
+SENTENCE_START = re.compile(r"(^|(?<=[.!?…])\s+)(?=\S)")
+
+
+def higgs_chunks(text: str, p: dict) -> list[str]:
+    """Fragmentos de hasta chunk_chars con los tokens globales al inicio de cada oración.
+
+    Los tokens de emoción/estilo/ritmo de Higgs colorean solo la oración que abren, así que
+    la entrega y el ritmo globales se repiten en cada una.
+    """
+    prefix = HIGGS_DELIVERY.get(p.get("delivery"), "") + HIGGS_PACE.get(p.get("pace"), "")
+    chunks = split_sentences(text, int(p["chunk_chars"]))
+    if prefix:
+        chunks = [SENTENCE_START.sub(lambda m: m.group(1) + prefix, c) for c in chunks]
+    return chunks
+
+
+def higgs_generate(job: dict, model):
+    """Genera fragmento a fragmento manteniendo la misma voz.
+
+    mlx-audio envía todo el texto de una vez y corta en max_new_tokens (1024 frames ≈ 41 s),
+    así que el worker divide por oraciones. La referencia se codifica una sola vez; sin
+    referencia, el primer fragmento generado pasa a ser la referencia de los siguientes.
+    """
+    p = job["params"]
+    top_p = float(p["top_p"])
+    sample = dict(
+        temperature=float(p["temperature"]),
+        top_k=int(p["top_k"]),
+        top_p=top_p if top_p < 1 else None,
+        max_new_tokens=int(p["max_new_tokens"]),
+    )
+    ref_codes, ref_text = None, None
+    if job.get("ref_audio"):
+        ref_codes = model.encode_reference_audio(job["ref_audio"])
+        ref_text = job.get("ref_text") or None
+
+    chunks = higgs_chunks(job["text"], p)
+    for i, chunk in enumerate(chunks):
+        emit("status", stage="generating", message=f"Fragmento {i + 1}/{len(chunks)}", progress=i / len(chunks))
+        result = next(model.generate(text=chunk, ref_audio_codes=ref_codes, ref_text=ref_text, **sample))
+        audio = np.array(result.audio, dtype=np.float32)
+        if ref_codes is None and len(chunks) > 1:
+            ref_codes = model.encode_reference_audio(audio)
+            ref_text = HIGGS_TOKEN.sub("", chunk).strip()
+        yield audio
+
 
 def main(job: dict) -> None:
     from mlx_audio.tts.utils import load_model
@@ -111,16 +167,23 @@ def main(job: dict) -> None:
         mx.random.seed(seed)
         np.random.seed(seed)
 
-    kwargs = BUILDERS[model_id](job, model)
     pieces = []
     emit("status", stage="generating", message="Generando audio…", progress=0)
     with Timer() as t_gen:
-        text = job["text"]
-        if model_id == "fish":
-            text = fish_turns(text, int(job["params"]["chunk_length"]))
-        for i, result in enumerate(model.generate(text=text, **kwargs)):
-            pieces.append(np.array(result.audio, dtype=np.float32))
-            emit("status", stage="generating", message=f"Segmento {i + 1} listo")
+        if model_id == "higgs":
+            silence = np.zeros(int(model.sample_rate * 0.12), dtype=np.float32)
+            for audio in higgs_generate(job, model):
+                pieces.extend([silence, audio] if pieces else [audio])
+            segments = (len(pieces) + 1) // 2
+        else:
+            kwargs = BUILDERS[model_id](job, model)
+            text = job["text"]
+            if model_id == "fish":
+                text = fish_turns(text, int(job["params"]["chunk_length"]))
+            for i, result in enumerate(model.generate(text=text, **kwargs)):
+                pieces.append(np.array(result.audio, dtype=np.float32))
+                emit("status", stage="generating", message=f"Segmento {i + 1} listo")
+            segments = len(pieces)
 
     if not pieces:
         raise RuntimeError("El modelo no devolvió audio.")
@@ -133,7 +196,7 @@ def main(job: dict) -> None:
         gen_seconds=round(t_gen.seconds, 2),
         rtf=round(t_gen.seconds / duration, 3) if duration else None,
         peak_memory_gb=round(mx.get_peak_memory() / 1e9, 2),
-        segments=len(pieces),
+        segments=segments,
     )
 
 

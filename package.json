@@ -2,7 +2,7 @@
   "name": "tts-arena-local",
   "version": "1.0.0",
   "private": true,
-  "description": "Arena local para comparar modelos TTS en español latino (Chatterbox es-MX, Qwen3-TTS, Fish S2 Pro) en Apple Silicon.",
+  "description": "Arena local para comparar modelos TTS en español latino (Chatterbox es-MX, Qwen3-TTS, Fish S2 Pro, Higgs TTS 3, CosyVoice3) en Apple Silicon.",
   "type": "module",
   "scripts": {
     "setup": "bash scripts/setup.sh",

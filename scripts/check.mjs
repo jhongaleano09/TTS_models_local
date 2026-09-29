@@ -19,7 +19,7 @@ for (const bin of ['ffmpeg', 'ffprobe']) {
   }
   line(found, `${bin} disponible`);
 }
-for (const env of ['torch', 'mlx']) line(existsSync(pythonFor(env)), `Entorno Python .venvs/${env}`);
+for (const env of new Set(MODELS.map((m) => m.env))) line(existsSync(pythonFor(env)), `Entorno Python .venvs/${env}`);
 for (const m of MODELS) {
   const r = modelReadiness(m);
   line(r.ready, `${m.name}${r.ready ? '' : ` — ${r.reason}`}`);

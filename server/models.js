@@ -1,6 +1,7 @@
 // Catálogo de modelos del Arena: fuente única de parámetros para la UI y los workers.
 // Rangos y valores por defecto tomados de las implementaciones oficiales
-// (Space de Resemble para Chatterbox, mlx-audio 0.5.7 para Qwen3-TTS y Fish S2 Pro).
+// (Space de Resemble para Chatterbox, mlx-audio 0.5.7 para Qwen3-TTS, Fish S2 Pro y Higgs TTS 3,
+// mlx-audio-plus 0.1.8 para CosyVoice3).
 
 const seedParam = {
   key: 'seed',
@@ -82,6 +83,55 @@ export const MODELS = [
       { key: 'speed', label: 'Velocidad', type: 'slider', min: 0.5, max: 2, step: 0.05, default: 1.0, help: 'Post-procesado del audio generado.' },
       { key: 'max_tokens', label: 'Máx. tokens por bloque', type: 'number', min: 256, max: 4096, step: 128, default: 1024, advanced: true, help: '≈ 21.5 tokens por segundo de audio.' },
       { key: 'chunk_length', label: 'Bytes por bloque', type: 'number', min: 100, max: 1000, step: 50, default: 300, advanced: true, help: 'El texto se divide por oraciones en bloques de este tamaño, generados en orden y manteniendo el contexto de la voz.' },
+      seedParam,
+    ],
+  },
+  {
+    id: 'higgs',
+    name: 'Higgs TTS 3 4B 6-bit',
+    repo: 'whitelabel/mlx-q6-higgs-tts-3-4b',
+    runtime: 'MLX · mlx-audio',
+    env: 'mlx',
+    worker: 'mlx_worker.py',
+    license: 'Boson Higgs TTS 3 Research (no comercial)',
+    size: '≈ 3.7 GB',
+    summary: 'El más fuerte en paralingüística según Boson: emoción, estilo, pausas y sonidos con tokens <|emotion:…|>. Español con México explícito.',
+    reference: { supported: true, needsText: true, note: 'Clonación zero-shot con audio + transcripción (la transcripción mejora mucho la fidelidad). Sin audio: voz aleatoria, que se mantiene en todo el texto usando el primer fragmento como referencia.' },
+    textHint: 'Las etiquetas de Fish se traducen a tokens de Higgs: [pause] → <|prosody:long_pause|>, [excited] → <|emotion:enthusiasm|>, [whisper] → <|style:whispering|>, [sigh] → <|sfx:sigh|>Ahh… También acepta tokens nativos <|categoría:valor|>. [emphasis] no tiene equivalente y se omite.',
+    attribution: "This audio was created with Boson AI's Higgs Audio",
+    params: [
+      { key: 'delivery', label: 'Entrega global', type: 'select', options: ['natural', 'expresiva', 'contenida'], default: 'natural', help: 'Antepone <|prosody:expressive_high|> o <|prosody:expressive_low|> a cada oración: el tono de fondo de todo el guion.' },
+      { key: 'pace', label: 'Ritmo global', type: 'select', options: ['normal', 'muy lento', 'lento', 'rápido', 'muy rápido'], default: 'normal', help: 'Token de velocidad por oración (≈0.65×, 0.85×, 1.2×, 1.4×).' },
+      { key: 'temperature', label: 'Temperatura', type: 'slider', min: 0.1, max: 1.5, step: 0.05, default: 0.8, help: 'Boson recomienda 0.8 para clonación.' },
+      { key: 'top_k', label: 'Top-k', type: 'number', min: 1, max: 200, step: 1, default: 50 },
+      { key: 'top_p', label: 'Top-p', type: 'slider', min: 0.1, max: 1, step: 0.01, default: 1.0, advanced: true, help: '1 = desactivado.' },
+      { key: 'max_new_tokens', label: 'Máx. frames por fragmento', type: 'number', min: 256, max: 4096, step: 128, default: 1024, advanced: true, help: '25 frames ≈ 1 s de audio.' },
+      { key: 'chunk_chars', label: 'Caracteres por fragmento', type: 'number', min: 80, max: 600, step: 10, default: 300, advanced: true, help: 'El texto se divide por oraciones; todos los fragmentos usan la misma voz.' },
+      seedParam,
+    ],
+  },
+  {
+    id: 'cosyvoice',
+    name: 'CosyVoice3 0.5B 4-bit',
+    repo: 'mlx-community/Fun-CosyVoice3-0.5B-2512-4bit',
+    runtime: 'MLX · mlx-audio-plus',
+    env: 'cosyvoice',
+    worker: 'cosyvoice_worker.py',
+    license: 'Apache-2.0',
+    size: '≈ 1.7 GB',
+    summary: 'El más ligero: 0.5B con buena prosodia y clonación zero-shot/cross-lingual. Instrucciones de estilo y control fino ([breath], <strong>).',
+    reference: {
+      supported: true,
+      needsText: false,
+      fallbackVoice: 'es_mx_f1',
+      note: 'Siempre clona una referencia: sin voz elegida usa la demo es-MX incluida. Con transcripción → zero-shot; solo audio → cross-lingual; con instrucción de estilo → modo instruct (ignora la transcripción).',
+    },
+    textHint: 'Las etiquetas de Fish se traducen al control fino de CosyVoice3: [emphasis] palabras → <strong>palabras</strong>, [pause] → [breath], [laughing] → [laughter], [sigh] → [sigh]. Las de emoción se omiten: usa la instrucción de estilo.',
+    params: [
+      { key: 'mode', label: 'Modo', type: 'select', options: ['auto', 'zero-shot', 'cross-lingual', 'instruct'], default: 'auto', help: 'auto: instruct si hay instrucción, zero-shot si la voz tiene transcripción, cross-lingual si no.' },
+      { key: 'instruct', label: 'Instrucción de estilo', type: 'textarea', default: '', help: 'En inglés, p. ej. "Speak warmly and slowly, like a news anchor." Se antepone "You are a helpful assistant." como pide el modelo.' },
+      { key: 'speed', label: 'Velocidad', type: 'slider', min: 0.5, max: 2, step: 0.05, default: 1.0, help: 'Estiramiento temporal posterior (no cambia el tono).' },
+      { key: 'chunk_chars', label: 'Caracteres por fragmento', type: 'number', min: 80, max: 400, step: 10, default: 200, advanced: true, help: 'El texto se divide por oraciones; cada fragmento clona la misma referencia.' },
       seedParam,
     ],
   },

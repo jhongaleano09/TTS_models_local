@@ -1,0 +1,5 @@
+# Entorno MLX propio para Fun-CosyVoice3 vía mlx-audio-plus (fork de mlx-audio).
+# mlx-audio-plus se instala como el paquete `mlx_audio` y arrastra mlx-audio 0.2.10 como
+# dependencia; setup.sh lo reinstala con --no-deps al final para que sus archivos prevalezcan.
+mlx-audio-plus==0.1.8
+soundfile

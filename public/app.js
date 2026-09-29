@@ -106,20 +106,29 @@ textEl.addEventListener('input', () => {
 });
 updateCounter();
 
-// El acceso rápido también fija la instrucción de estilo de Fish (tono global del guion).
-function applySample(text, instruct) {
+// El acceso rápido también fija el tono global del guion en cada modelo que lo admite
+// (instrucción de Fish, entrega y ritmo de Higgs, instrucción de CosyVoice3).
+function applySample({ text, styles }) {
   textEl.value = text;
   textEl.dispatchEvent(new Event('input'));
-  const fish = state.models.find((m) => m.id === 'fish');
-  if (!fish) return;
-  modelSettings(fish).params.instruct = instruct;
+  for (const [modelId, params] of Object.entries(styles)) {
+    const model = state.models.find((m) => m.id === modelId);
+    if (model) Object.assign(modelSettings(model).params, params);
+  }
   saveSettings();
   renderStrips();
 }
 
+const styleSummary = ({ styles }) =>
+  [
+    styles.fish && `Fish: ${styles.fish.instruct}`,
+    styles.higgs && `Higgs: entrega ${styles.higgs.delivery}, ritmo ${styles.higgs.pace}`,
+    styles.cosyvoice && `CosyVoice3: ${styles.cosyvoice.instruct}`,
+  ].filter(Boolean).join('\n');
+
 $('#samples').append(
-  ...SAMPLES.map(([label, instruct, text]) =>
-    h('button', { class: 'chip', type: 'button', title: `Estilo para Fish: ${instruct}`, onclick: () => applySample(text, instruct) }, label),
+  ...SAMPLES.map((sample) =>
+    h('button', { class: 'chip', type: 'button', title: styleSummary(sample), onclick: () => applySample(sample) }, sample.label),
   ),
 );
 
@@ -149,8 +158,8 @@ function updateVoicePreview() {
   $('#voice-transcript').textContent = voice
     ? voice.transcript
       ? `“${voice.transcript}”`
-      : 'Sin transcripción: Qwen usará solo el timbre y Fish clonará con menos precisión.'
-    : 'Chatterbox usará su voz integrada; Qwen y Fish generarán una voz aleatoria.';
+      : 'Sin transcripción: Qwen usará solo el timbre, CosyVoice3 irá en modo cross-lingual y Fish e Higgs clonarán con menos precisión.'
+    : 'Chatterbox usará su voz integrada; Qwen, Fish e Higgs generarán una voz aleatoria; CosyVoice3 clonará la voz demo es-MX.';
 }
 $('#voice').addEventListener('change', (e) => {
   state.settings.voiceId = e.target.value;

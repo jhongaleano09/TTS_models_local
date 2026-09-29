@@ -1,14 +1,22 @@
-// Textos de prueba de acceso rápido. Llevan etiquetas de Fish S2 Pro ([pause], [emphasis]…):
-// Fish las interpreta y el servidor las elimina del texto que reciben Chatterbox y Qwen.
+// Textos de prueba de acceso rápido. Se escriben con las etiquetas de Fish S2 Pro ([pause],
+// [emphasis], [sigh]…), que el servidor traduce para cada modelo (server/tags.js):
+//   Fish las recibe tal cual; Higgs las convierte en tokens <|prosody:…|>, <|emotion:…|>, <|sfx:…|>;
+//   CosyVoice3 en su control fino ([breath], <strong>…</strong>); Chatterbox y Qwen las reciben sin etiquetas.
 // Regla de uso: la etiqueta va justo antes de las palabras que modifica, y con moderación
 // (una o dos por párrafo); si todo lleva énfasis, nada destaca.
-// Formato: [etiqueta del botón, instrucción de estilo de Fish (tono global), texto].
+// `styles` fija el tono global del guion en cada modelo que lo admite:
+//   fish.instruct (español, libre), higgs.delivery / higgs.pace (tokens globales por oración),
+//   cosyvoice.instruct (inglés; activa el modo instruct).
 
 export const SAMPLES = [
-  [
-    'IA, hardware y voz',
-    'Presentadora de noticias de tecnología latinoamericana, cercana y dinámica. Ritmo ágil en los titulares y más pausado y reflexivo al hablar de la voz; marca bien el contraste entre las dos frases de ejemplo.',
-    `Es lunes, veintiocho de septiembre, y comenzamos nuestro recorrido diario por las noticias más interesantes de inteligencia artificial, tecnología y startups.
+  {
+    label: 'IA, hardware y voz',
+    styles: {
+      fish: { instruct: 'Presentadora de noticias de tecnología latinoamericana, cercana y dinámica. Ritmo ágil en los titulares y más pausado y reflexivo al hablar de la voz; marca bien el contraste entre las dos frases de ejemplo.' },
+      higgs: { delivery: 'expresiva', pace: 'normal' },
+      cosyvoice: { instruct: 'Speak like a friendly Latin American tech news anchor: brisk and upbeat on the headlines, slower and more reflective when talking about the human voice.' },
+    },
+    text: `Es lunes, veintiocho de septiembre, y comenzamos nuestro recorrido diario por las noticias más interesantes de inteligencia artificial, tecnología y startups.
 
 [short pause] Primera parada: [emphasis] inteligencia artificial.
 
@@ -41,11 +49,15 @@ Las palabras son prácticamente las mismas, pero la interpretación [emphasis] p
 Y justamente esa capacidad de interpretar el texto será una de las pruebas más interesantes para la próxima generación de modelos de voz.
 
 [pause] Continuamos con las noticias.`,
-  ],
-  [
-    'Nombres, cifras y siglas',
-    'Presentadora de podcast tecnológico, clara y precisa, con energía de apertura. Pronuncia los nombres en inglés con naturalidad y cada sigla y cifra con cuidado; la primera frase final incrédula y emocionada, la segunda serena y segura.',
-    `[excited] Hola. Comenzamos una nueva edición de nuestro resumen diario.
+  },
+  {
+    label: 'Nombres, cifras y siglas',
+    styles: {
+      fish: { instruct: 'Presentadora de podcast tecnológico, clara y precisa, con energía de apertura. Pronuncia los nombres en inglés con naturalidad y cada sigla y cifra con cuidado; la primera frase final incrédula y emocionada, la segunda serena y segura.' },
+      higgs: { delivery: 'expresiva', pace: 'normal' },
+      cosyvoice: { instruct: 'Speak like an energetic tech podcast host, clear and precise, pronouncing English brand names naturally and every number and acronym carefully.' },
+    },
+    text: `[excited] Hola. Comenzamos una nueva edición de nuestro resumen diario.
 
 Hoy tenemos inteligencia artificial, nuevos modelos, herramientas para desarrolladores y una pequeña sección dedicada a proyectos que podemos ejecutar localmente.
 
@@ -100,11 +112,15 @@ Memoria de acceso aleatorio, conocida como RAM.
 Un buen modelo debería entender que esas dos frases [emphasis] no deberían sonar de la misma manera.
 
 [short pause] Con esto comenzamos el resumen de hoy.`,
-  ],
-  [
-    'Resumen: agentes',
-    'Presentadora de noticiero matutino, cálida y segura, con tono de bienvenida. Ritmo medio, énfasis en las ideas clave y curiosidad genuina en la pregunta sobre voces humanas.',
-    `[warm tone] Buenos días. Bienvenido a tu resumen diario de inteligencia artificial, tecnología y negocios.
+  },
+  {
+    label: 'Resumen: agentes',
+    styles: {
+      fish: { instruct: 'Presentadora de noticiero matutino, cálida y segura, con tono de bienvenida. Ritmo medio, énfasis en las ideas clave y curiosidad genuina en la pregunta sobre voces humanas.' },
+      higgs: { delivery: 'natural', pace: 'normal' },
+      cosyvoice: { instruct: 'Speak like a warm and confident morning news anchor, at a medium pace, stressing the key ideas with genuine curiosity.' },
+    },
+    text: `[warm tone] Buenos días. Bienvenido a tu resumen diario de inteligencia artificial, tecnología y negocios.
 
 Hoy tenemos varias historias interesantes, pero hay una idea que conecta prácticamente todas: [short pause] los modelos de inteligencia artificial están dejando de ser solamente herramientas que responden preguntas, [emphasis] y comienzan a convertirse en sistemas capaces de ejecutar tareas completas.
 
@@ -127,11 +143,15 @@ No solamente necesitamos que pronuncie correctamente las palabras. También quer
 Ese será uno de los temas que seguiremos observando durante los próximos días.
 
 [pause] Hasta aquí el resumen de hoy. Vamos a entrar ahora en cada una de las historias.`,
-  ],
-  [
-    'Ciberseguridad',
-    'Periodista de investigación, tono serio y cercano, ligeramente preocupado. Ritmo pausado; la llamada falsa en voz baja y confidencial, y las recomendaciones firmes y claras.',
-    `Comenzamos con una historia que mezcla inteligencia artificial, ciberseguridad y algo que cada vez será más importante: [short pause] verificar quién está [emphasis] realmente al otro lado de una conversación.
+  },
+  {
+    label: 'Ciberseguridad',
+    styles: {
+      fish: { instruct: 'Periodista de investigación, tono serio y cercano, ligeramente preocupado. Ritmo pausado; la llamada falsa en voz baja y confidencial, y las recomendaciones firmes y claras.' },
+      higgs: { delivery: 'contenida', pace: 'lento' },
+      cosyvoice: { instruct: 'Speak like an investigative journalist, serious and slightly worried, at a slow and deliberate pace, with firm and clear advice.' },
+    },
+    text: `Comenzamos con una historia que mezcla inteligencia artificial, ciberseguridad y algo que cada vez será más importante: [short pause] verificar quién está [emphasis] realmente al otro lado de una conversación.
 
 Durante años, una llamada telefónica parecía suficiente para reconocer a una persona. Su voz, su manera de hablar y hasta sus pequeñas pausas funcionaban como una especie de firma personal.
 
@@ -168,11 +188,15 @@ Una contraseña robada puede convertirse en la llave para entrar a cinco, [short
 [pause] Tecnología más inteligente significa también amenazas más inteligentes.
 
 La seguridad, por tanto, tendrá que evolucionar al mismo ritmo.`,
-  ],
-  [
-    'Espacio y autonomía',
-    'Narradora de documental de divulgación científica, con asombro contenido. Ritmo lento y evocador, silencios marcados en la secuencia de la instrucción que viaja y tono reflexivo en la pregunta final.',
-    `Ahora cambiamos completamente de escenario.
+  },
+  {
+    label: 'Espacio y autonomía',
+    styles: {
+      fish: { instruct: 'Narradora de documental de divulgación científica, con asombro contenido. Ritmo lento y evocador, silencios marcados en la secuencia de la instrucción que viaja y tono reflexivo en la pregunta final.' },
+      higgs: { delivery: 'natural', pace: 'lento' },
+      cosyvoice: { instruct: 'Speak like a science documentary narrator, slow and evocative, with quiet wonder and marked silences.' },
+    },
+    text: `Ahora cambiamos completamente de escenario.
 
 Dejamos los servidores, los centros de datos y las pantallas para mirar hacia arriba.
 
@@ -227,11 +251,15 @@ Deben reconocer obstáculos, analizar el terreno y tomar pequeñas decisiones si
 [short pause] Un problema bastante parecido.
 
 [pause] ¿Cómo construir sistemas capaces de actuar correctamente cuando un humano no puede supervisar cada segundo?`,
-  ],
-  [
-    'Negocios y números',
-    'Analista financiera en un noticiero económico, segura y didáctica. Ritmo claro y medido, pausa antes de revelar cada cifra y énfasis nítido en números, porcentajes y siglas.',
-    `Pasemos ahora a negocios.
+  },
+  {
+    label: 'Negocios y números',
+    styles: {
+      fish: { instruct: 'Analista financiera en un noticiero económico, segura y didáctica. Ritmo claro y medido, pausa antes de revelar cada cifra y énfasis nítido en números, porcentajes y siglas.' },
+      higgs: { delivery: 'natural', pace: 'normal' },
+      cosyvoice: { instruct: 'Speak like a confident financial analyst on a business newscast, clear, measured and didactic, pausing before each figure.' },
+    },
+    text: `Pasemos ahora a negocios.
 
 Imagina una pequeña empresa que factura cien millones de pesos al mes.
 
@@ -286,5 +314,5 @@ Y cuando alguien dice que tiene una relación de LTV sobre CAC de tres a uno, es
 Precisamente por eso un buen sistema de texto a voz necesita pronunciar números, porcentajes, monedas y abreviaturas con enorme precisión.
 
 [serious] Un error de una palabra puede cambiar completamente el significado de una noticia.`,
-  ],
+  },
 ];
