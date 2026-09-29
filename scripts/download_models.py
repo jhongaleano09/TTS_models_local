@@ -1,6 +1,6 @@
 """Descarga previa de los pesos de los modelos del Arena.
 
-Uso:  .venvs/mlx/bin/python scripts/download_models.py [chatterbox|qwen|fish|voices ...]
+Uso:  npm run download [-- chatterbox|qwen|fish|whisper|voices ...]
 Sin argumentos descarga todo. Los pesos quedan en la caché de Hugging Face
 (~/.cache/huggingface), salvo Fish 4-bit, que se ensambla en models/.
 """
@@ -22,6 +22,7 @@ QWEN_REPO = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-4bit"
 FISH_4BIT_REPO = "majentik/fishaudio-s2-pro-MLX-4bit"
 FISH_8BIT_REPO = "mlx-community/fish-audio-s2-pro-8bit"
 FISH_4BIT_DIR = MODELS_DIR / "fish-s2-pro-4bit"
+WHISPER_REPO = "mlx-community/whisper-large-v3-turbo-asr-8bit"
 
 DEFAULT_VOICES = {
     "es_mx_f1.wav": "https://storage.googleapis.com/chatterbox-demo-samples/mtl-v3-single-language-prompts/es-latam/es_mx_f1.wav",
@@ -81,7 +82,12 @@ def voices() -> None:
             urllib.request.urlretrieve(url, dst)
 
 
-TASKS = {"voices": voices, "chatterbox": chatterbox, "qwen": qwen, "fish": fish}
+def whisper() -> None:
+    log(f"Whisper (transcripción de voces de referencia): {WHISPER_REPO} (~0.9 GB)")
+    snapshot_download(WHISPER_REPO)
+
+
+TASKS = {"voices": voices, "chatterbox": chatterbox, "qwen": qwen, "fish": fish, "whisper": whisper}
 
 if __name__ == "__main__":
     selected = sys.argv[1:] or list(TASKS)

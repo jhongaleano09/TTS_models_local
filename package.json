@@ -1,0 +1,21 @@
+{
+  "name": "tts-arena-local",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Arena local para comparar modelos TTS en español latino (Chatterbox es-MX, Qwen3-TTS, Fish S2 Pro) en Apple Silicon.",
+  "type": "module",
+  "scripts": {
+    "setup": "bash scripts/setup.sh",
+    "download": ".venvs/mlx/bin/python scripts/download_models.py",
+    "start": "node server/index.js",
+    "dev": "node --watch-path=server --watch-path=public server/index.js",
+    "check": "node scripts/check.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
