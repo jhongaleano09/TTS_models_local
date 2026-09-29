@@ -1,0 +1,18 @@
+# Entorno PyTorch (MPS) para Chatterbox Multilingual V3 es-MX/LatAm.
+# Versiones alineadas con el Space oficial de Resemble (ResembleAI/Chatterbox-Multilingual-TTS-es-mx-latam).
+torch==2.8.0
+torchaudio==2.8.0
+numpy==1.26.4
+librosa==0.10.2.post1
+resampy==0.4.3
+s3tokenizer
+transformers==4.46.3
+diffusers==0.29.0
+omegaconf==2.3.0
+resemble-perth==1.0.1
+conformer==0.3.2
+safetensors
+einops
+huggingface_hub<1.0
+soundfile
+setuptools<81  # perth importa pkg_resources

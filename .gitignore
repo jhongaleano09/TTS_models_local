@@ -1,0 +1,10 @@
+node_modules/
+.venvs/
+models/
+outputs/
+data/
+__pycache__/
+*.pyc
+.DS_Store
+assets/voices/*.wav
+!assets/voices/.gitkeep
