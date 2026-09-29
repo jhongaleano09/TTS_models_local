@@ -186,6 +186,15 @@ La temperatura y el top-k no se exponen porque mlx-audio-plus los fija intername
 
 **Textos largos:** con el guion "Espacio y autonomía" en modo instruct: 143 s de audio en 12 fragmentos, RTF 0.62, pico de 3.8 GB. Es el modelo más pequeño y se nota: de vez en cuando deforma alguna palabra, así que conviene escuchar el resultado completo.
 
+**Ritmo según el modo (medido con la voz demo es-MX, semilla 1, velocidad 1.0):** en cross-lingual e instruct el LLM no ve los tokens de habla de la referencia, así que no copia su ritmo y habla con el suyo, bastante más rápido. Whisper transcribió completas todas las pruebas: el audio es más corto porque la locución es más rápida, no porque falten palabras.
+
+| Texto | zero-shot | cross-lingual | instruct ("measured… pausing before each figure") |
+|---|---|---|---|
+| "La inflación anual cerró en cuatro coma dos por ciento, por debajo de lo que esperaba el mercado." | 8.1 s | 6.4 s | 5.3 s |
+| "Prueba corta de toma individual." | 3.2 s | 2.3 s | 1.9 s |
+
+La instrucción no frena el ritmo aunque pida pausas; para una locución pausada usa zero-shot (voz con transcripción) o baja `speed` a ≈ 0.8 en instruct. En frases muy cortas, cross-lingual e instruct pueden comerse la primera sílaba (Whisper oyó "Rueda corta…" y "Reba corta…"); con textos de una oración o más no pasó.
+
 **Control fino en el texto:** `[breath]`, `[quick_breath]`, `[laughter]`, `[sigh]`, `[cough]`, `[lipsmack]`, `[noise]`, `[mn]` en el punto exacto, y `<strong>palabras</strong>` o `<laughter>palabras</laughter>` para envolver un tramo.
 
 ---
