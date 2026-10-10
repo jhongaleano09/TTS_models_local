@@ -275,6 +275,12 @@ function renderStrips() {
     const strip = $('#tpl-strip').content.firstElementChild.cloneNode(true);
     strip.dataset.model = model.id;
     $('.strip-name', strip).textContent = model.name;
+    strip.classList.toggle('favorite', Boolean(model.favorite));
+    const favorite = $('.strip-favorite', strip);
+    favorite.hidden = !model.favorite;
+    if (model.favorite) {
+      favorite.append(h('strong', {}, '★ Tu favorito'), h('span', {}, model.favoriteNote));
+    }
     $('.strip-meta', strip).textContent = `${model.runtime}, ${model.size}, licencia ${model.license}`;
     $('.strip-summary', strip).textContent = model.summary;
     $('.ref-note', strip).textContent = model.reference.note;

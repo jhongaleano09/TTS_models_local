@@ -15,6 +15,8 @@ Arena para comparar modelos de texto a voz en español latino **100 % en local**
 
 La selección sale de la [investigación base](docs/investigacion/investigacion_base_TTS.md). Los parámetros de cada modelo y las mediciones de rendimiento están en [docs/modelos.md](docs/modelos.md).
 
+**Favorito personal de Jhon: Higgs TTS 3 4B 6-bit.** Según las pruebas que realizó con su propia voz, es el modelo que mejor se adapta a ella. Arena lo identifica con **★ Tu favorito**.
+
 Supertonic se añadió tras verificar el modelo original y el archivo oficial de Supertone. Su [guía completa de configuración](docs/supertonic-3.md) incluye los parámetros, idiomas, importación de estilos JSON, etiquetas y pruebas locales. El SDK público no clona una grabación; Voice Builder está cerrado y el código oficial archivado.
 
 ## Requisitos

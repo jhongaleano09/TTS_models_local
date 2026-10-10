@@ -89,6 +89,8 @@ export const MODELS = [
   {
     id: 'higgs',
     name: 'Higgs TTS 3 4B 6-bit',
+    favorite: true,
+    favoriteNote: 'El que mejor se adapta a tu voz, según las pruebas que realizaste.',
     repo: 'whitelabel/mlx-q6-higgs-tts-3-4b',
     runtime: 'MLX · mlx-audio',
     env: 'mlx',

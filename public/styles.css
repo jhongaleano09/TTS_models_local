@@ -173,6 +173,10 @@ audio { width: 100%; height: 36px; }
 .strip-name { font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; }
 .strip-meta { color: var(--ch); font-size: 0.8rem; font-weight: 600; }
 .strip-summary { color: var(--ink-2); font-size: 0.86rem; }
+.strip.favorite { border-color: var(--ch); }
+.strip-favorite { display: grid; gap: 2px; font-size: 0.82rem; }
+.strip-favorite strong { color: var(--ch); }
+.strip-favorite span { color: var(--ink-2); }
 
 .strip-body { padding: 14px 16px; display: grid; gap: 12px; }
 .params, .params-adv { display: grid; gap: 12px; }
