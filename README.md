@@ -10,9 +10,12 @@ Arena para comparar modelos de texto a voz en español latino **100 % en local**
 | **Qwen3-TTS 1.7B Base 4-bit** | MLX | El más rápido; clonación excelente con audio + transcripción. |
 | **Fish Audio S2 Pro 4-bit** | MLX | El más expresivo: etiquetas `[whisper]`, `[laughing]`, `[sigh]`… |
 | **Higgs TTS 3 4B 6-bit** | MLX | Paralingüística fuerte: tokens `<\|emotion:…\|>`, `<\|sfx:laughter\|>`, pausas. |
-| **CosyVoice3 0.5B 4-bit** | MLX (mlx-audio-plus) | El más ligero; clonación zero-shot e instrucciones de estilo. |
+| **CosyVoice3 0.5B 4-bit** | MLX (mlx-audio-plus) | El más ligero de los modelos MLX; clonación zero-shot e instrucciones de estilo. |
+| **Supertonic 3** | ONNX Runtime · CPU | Supertone: 31 idiomas, 10 voces, estilos JSON y audio 44.1 kHz con ~0.4 GB de pesos. |
 
 La selección sale de la [investigación base](docs/investigacion/investigacion_base_TTS.md). Los parámetros de cada modelo y las mediciones de rendimiento están en [docs/modelos.md](docs/modelos.md).
+
+Supertonic se añadió tras verificar el modelo original y el archivo oficial de Supertone. Su [guía completa de configuración](docs/supertonic-3.md) incluye los parámetros, idiomas, importación de estilos JSON, etiquetas y pruebas locales. El SDK público no clona una grabación; Voice Builder está cerrado y el código oficial archivado.
 
 ## Requisitos
 
@@ -25,7 +28,7 @@ La selección sale de la [investigación base](docs/investigacion/investigacion_
 ## Instalación y uso
 
 ```bash
-npm run setup     # dependencias Node, tres entornos Python y descarga de pesos (~16 GB)
+npm run setup     # dependencias Node, cuatro entornos Python y descarga de pesos (~16.4 GB)
 npm run check     # verifica que todo esté listo
 npm run dev       # abre http://localhost:5178
 ```
@@ -33,10 +36,11 @@ npm run dev       # abre http://localhost:5178
 | Script | Qué hace |
 |---|---|
 | `npm run setup` | Instala todo. Se puede repetir sin problema. |
-| `npm run download [-- fish]` | Descarga (o completa) pesos: `chatterbox`, `qwen`, `fish`, `higgs`, `cosyvoice`, `whisper`, `voices`. |
+| `npm run download [-- fish]` | Descarga (o completa) pesos: `chatterbox`, `qwen`, `fish`, `higgs`, `cosyvoice`, `supertonic`, `whisper`, `voices`. |
 | `npm run dev` | Servidor con recarga al cambiar `server/`. |
 | `npm start` | Servidor sin recarga. Puerto configurable con `PORT=…`. |
 | `npm run check` | Comprueba ffmpeg, entornos, pesos y MPS. |
+| `npm test` | Verifica configuración, importación de estilos y traducción de etiquetas de Supertonic. |
 
 ## La interfaz
 
@@ -44,7 +48,7 @@ npm run dev       # abre http://localhost:5178
 - **Accesos rápidos:** seis guiones etiquetados que fijan también el tono de Fish, Higgs y CosyVoice3. Las etiquetas se traducen a cada modelo (ver [docs/modelos.md](docs/modelos.md#traducción-de-etiquetas-entre-modelos)).
 - **Tomas individuales y ajuste fino:** el botón **Generar solo este** de cada columna genera solo ese modelo con sus ajustes actuales. Las tomas anteriores del mismo texto se conservan en la columna (la más reciente arriba), cada una con su audio y los parámetros que cambiaron frente a la anterior; antes de generar, la columna muestra qué cambiará frente a la última toma. La semilla 0 (aleatoria) se resuelve a un número concreto y queda registrada, así una toma aleatoria que guste se puede reproducir con **Usar estos ajustes**. Se pueden encolar varias tomas seguidas y descartar las que no sirvan. Las tomas individuales no cuentan para el ranking.
 - **Ajustes guardados:** cada columna guarda configuraciones con nombre (parámetros + uso de la voz de referencia) en `data/presets.json`, desde los controles actuales o desde una toma (**Guardar como ajuste**). Guardar con un nombre existente lo actualiza.
-- **Escucha a ciegas:** baraja los resultados como Modelo A/B/C/D/E; al votar se revelan los nombres.
+- **Escucha a ciegas:** baraja los resultados como Modelo A/B/C/D/E/F; al votar se revelan los nombres.
 - **Historial:** todas las generaciones, con descarga del WAV y la opción de reutilizar su configuración.
 - **Ranking:** victorias por modelo en las comparaciones votadas y RTF medio.
 - **Voces:** sube o graba voces de referencia (5–15 s); Whisper las transcribe automáticamente.
@@ -58,11 +62,12 @@ Navegador ──HTTP/SSE──▶ Node (Express)
                           ├─▶ .venvs/mlx/bin/python   workers/mlx_worker.py       job.json  (Qwen)
                           ├─▶ .venvs/mlx/bin/python   workers/mlx_worker.py       job.json  (Fish)
                           ├─▶ .venvs/mlx/bin/python   workers/mlx_worker.py       job.json  (Higgs)
-                          └─▶ .venvs/cosyvoice/bin/python workers/cosyvoice_worker.py job.json
+                          ├─▶ .venvs/cosyvoice/bin/python workers/cosyvoice_worker.py job.json
+                          └─▶ .venvs/supertonic/bin/python workers/supertonic_worker.py job.json
 ```
 
 - Cada modelo corre en **su propio proceso Python**; al terminar, el proceso sale y el sistema operativo recupera toda su memoria. Si detienes el servidor, el proceso en curso se termina también.
-- Hay **tres entornos Python**: Chatterbox fija `transformers 4.46` y `mlx-audio` exige `≥ 5.14`; y `mlx-audio-plus` (CosyVoice3) se instala como el mismo paquete `mlx_audio` que `mlx-audio`.
+- Hay **cuatro entornos Python**: Chatterbox fija `transformers 4.46` y `mlx-audio` exige `≥ 5.14`; `mlx-audio-plus` (CosyVoice3) se instala como el mismo paquete `mlx_audio` que `mlx-audio`. Supertonic usa su SDK oficial y ONNX en CPU, aislado de los tres anteriores.
 - Los resultados se guardan en `outputs/runs/<id>/` (WAV + `run.json`); las voces subidas en `data/voices/`; los ajustes guardados en `data/presets.json`.
 
 ## Problemas frecuentes
@@ -76,3 +81,4 @@ Navegador ──HTTP/SSE──▶ Node (Express)
 - Fish Audio S2 Pro: Fish Audio Research License, **solo uso no comercial** sin un acuerdo con Fish Audio. Built with Fish Audio.
 - Higgs TTS 3: Boson Higgs TTS 3 Research and Non-Commercial License. Contenido de creadores monetizable acreditando *"This audio was created with Boson AI's Higgs Audio"*; uso en productos o producción requiere licencia comercial.
 - CosyVoice3: Apache-2.0.
+- Supertonic 3: pesos OpenRAIL-M con condiciones de uso; SDK y ejemplos MIT.

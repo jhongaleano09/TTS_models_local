@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -20,6 +20,16 @@ export function modelReadiness(model) {
   }
   if (model.id === 'fish' && !existsSync(join(ROOT, 'models', 'fish-s2-pro-4bit', 'codec.safetensors'))) {
     return { ready: false, reason: 'Fish S2 Pro 4-bit no está ensamblado. Ejecuta: npm run download -- fish' };
+  }
+  if (model.id === 'supertonic') {
+    const dir = join(ROOT, 'models', 'supertonic-3');
+    const files = ['onnx/tts.json', 'onnx/unicode_indexer.json', 'onnx/duration_predictor.onnx', 'onnx/text_encoder.onnx', 'onnx/vector_estimator.onnx', 'onnx/vocoder.onnx', ...['M1', 'M2', 'M3', 'M4', 'M5', 'F1', 'F2', 'F3', 'F4', 'F5'].map((voice) => `voice_styles/${voice}.json`)];
+    try {
+      const manifest = JSON.parse(readFileSync(join(dir, 'download-manifest.json'), 'utf8'));
+      if (manifest.repo !== model.repo || manifest.revision !== model.revision || files.some((file) => !statSync(join(dir, file)).isFile() || statSync(join(dir, file)).size === 0)) throw new Error('Pesos incompletos');
+    } catch {
+      return { ready: false, reason: 'Faltan pesos o la revisión fijada de Supertonic 3. Ejecuta: npm run download -- supertonic' };
+    }
   }
   return { ready: true };
 }

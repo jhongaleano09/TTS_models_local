@@ -11,6 +11,8 @@
 const HIGGS_TOKEN = /<\|(?:emotion|style|sfx|prosody|env):[a-z_]+\|>/g;
 const SPEAKER_TAG = /<\|speaker:\d+\|>/g;
 const COSY_SPAN = /<\/?(?:strong|laughter)>/g;
+// Tokens explícitamente documentados en la ficha oficial de Supertonic 3.
+const SUPERTONIC_TAG = /<(?:laugh|breath|sigh)>/gi;
 const BRACKET_TAG = /\[([^\]\n]{1,40})\]/g;
 
 // Tokens de control fino del tokenizer de CosyVoice3 (se respetan si vienen escritos a mano).
@@ -86,14 +88,15 @@ const tidy = (text) =>
     .replace(/^[ \t]+|[ \t]+$/gm, '')
     .trim();
 
-const stripAll = (text) => tidy(text.replace(SPEAKER_TAG, ' ').replace(HIGGS_TOKEN, ' ').replace(COSY_SPAN, '').replace(BRACKET_TAG, ' '));
+const stripAll = (text) => tidy(text.replace(SUPERTONIC_TAG, ' ').replace(SPEAKER_TAG, ' ').replace(HIGGS_TOKEN, ' ').replace(COSY_SPAN, '').replace(BRACKET_TAG, ' '));
 
 function toFish(text) {
-  return tidy(text.replace(HIGGS_TOKEN, ' ').replace(COSY_SPAN, ''));
+  return tidy(text.replace(SUPERTONIC_TAG, ' ').replace(HIGGS_TOKEN, ' ').replace(COSY_SPAN, ''));
 }
 
 function toHiggs(text) {
   const out = text
+    .replace(SUPERTONIC_TAG, ' ')
     .replace(SPEAKER_TAG, ' ')
     .replace(COSY_SPAN, '')
     .replace(BRACKET_TAG, (_, raw) => FISH_TO_HIGGS[raw.trim().toLowerCase()] ?? ' ');
@@ -108,6 +111,7 @@ function toHiggs(text) {
 
 function toCosy(text) {
   const out = text
+    .replace(SUPERTONIC_TAG, ' ')
     .replace(SPEAKER_TAG, ' ')
     .replace(HIGGS_TOKEN, ' ')
     .replace(/\[emphasis\]\s*([^.,;:!?…\n“”"«»\[<]+)/gi, (_, words) => `<strong>${words.trim()}</strong> `)
@@ -121,7 +125,12 @@ function toCosy(text) {
   return tidy(out.replace(/(^|[.!?…:;]["”»]?\s*)(?:\[(?:breath|quick_breath)\]\s*)+/gm, '$1'));
 }
 
-const CONVERTERS = { fish: toFish, higgs: toHiggs, cosyvoice: toCosy };
+function toSupertonic(text) {
+  const sounds = { laughing: '<laugh>', laugh: '<laugh>', laughter: '<laugh>', chuckle: '<laugh>', breath: '<breath>', inhale: '<breath>', exhale: '<breath>', sigh: '<sigh>' };
+  return tidy(text.replace(SPEAKER_TAG, ' ').replace(HIGGS_TOKEN, ' ').replace(COSY_SPAN, '').replace(BRACKET_TAG, (_, raw) => sounds[raw.trim().toLowerCase()] ?? ' '));
+}
+
+const CONVERTERS = { fish: toFish, higgs: toHiggs, cosyvoice: toCosy, supertonic: toSupertonic };
 
 /** Texto que recibe cada modelo a partir del guion común. */
 export function textForModel(modelId, text) {

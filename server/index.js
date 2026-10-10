@@ -6,11 +6,12 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import express from 'express';
 import { MODELS, defaultsFor, getModel } from './models.js';
-import { OUTPUTS_DIR, PUBLIC_DIR, TMP_DIR, VOICES_DIR, modelReadiness } from './paths.js';
+import { DATA_DIR, OUTPUTS_DIR, PUBLIC_DIR, TMP_DIR, VOICES_DIR, modelReadiness } from './paths.js';
 import { SerialQueue } from './queue.js';
 import * as store from './store.js';
 import { textForModel } from './tags.js';
 import { runWorker } from './worker.js';
+import { validateSupertonicParams, validateSupertonicStyle } from './supertonic.js';
 
 const PORT = Number(process.env.PORT) || 5178;
 const MAX_TEXT = 3000;
@@ -94,6 +95,7 @@ app.get('/api/runs/:id', (req, res) => {
 
 // Solo se aceptan parámetros declarados en el catálogo.
 function sanitizeParams(model, params = {}) {
+  if (model.id === 'supertonic') return validateSupertonicParams(model, params);
   const clean = defaultsFor(model);
   for (const p of model.params) if (params?.[p.key] !== undefined) clean[p.key] = params[p.key];
   return clean;
@@ -121,11 +123,16 @@ app.post('/api/runs', (req, res) => {
     if (!model) return res.status(400).json({ error: `Modelo desconocido: ${reqModel.id}` });
     const readiness = modelReadiness(model);
     if (!readiness.ready) return res.status(400).json({ error: `${model.name}: ${readiness.reason}` });
-    const params = sanitizeParams(model, reqModel.params);
+    let params;
+    try {
+      params = sanitizeParams(model, reqModel.params);
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
+    }
     results[model.id] = {
       model: model.id,
       params,
-      useReference: Boolean(voice && reqModel.useReference !== false),
+      useReference: Boolean(model.reference.supported && voice && reqModel.useReference !== false),
       status: 'queued',
       message: 'En cola',
       log: [],
@@ -308,11 +315,17 @@ app.post('/api/presets', (req, res) => {
   const model = getModel(modelId);
   if (!model) return res.status(400).json({ error: `Modelo desconocido: ${modelId}` });
   if (!String(name ?? '').trim()) return res.status(400).json({ error: 'Ponle un nombre al ajuste.' });
+  let cleanParams;
+  try {
+    cleanParams = sanitizeParams(model, params);
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
   const preset = store.savePreset({
     model: model.id,
     name: String(name).trim().slice(0, 80),
-    params: sanitizeParams(model, params),
-    useReference: Boolean(useReference),
+    params: cleanParams,
+    useReference: Boolean(model.reference.supported && useReference),
   });
   broadcast('presets', store.listPresets());
   res.status(201).json(preset);
@@ -325,6 +338,20 @@ app.delete('/api/presets/:id', (req, res) => {
 });
 
 // ---------- Voces de referencia ----------
+
+app.post('/api/supertonic/styles', (req, res) => {
+  try {
+    const style = validateSupertonicStyle(req.body?.style);
+    if (JSON.stringify(style).length > 2_000_000) throw new Error('El estilo JSON supera 2 MB.');
+    const dir = join(DATA_DIR, 'supertonic-styles');
+    mkdirSync(dir, { recursive: true });
+    const path = join(dir, `${randomUUID()}.json`);
+    writeFileSync(path, JSON.stringify(style));
+    res.status(201).json({ path });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
 
 const EXT_BY_MIME = { 'audio/webm': 'webm', 'audio/ogg': 'ogg', 'audio/mp4': 'm4a', 'audio/mpeg': 'mp3', 'audio/wav': 'wav', 'audio/x-wav': 'wav', 'audio/flac': 'flac' };
 

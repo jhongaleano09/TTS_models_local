@@ -75,7 +75,8 @@ function saveSettings() {
 }
 function modelSettings(model) {
   const s = (state.settings.models ??= {});
-  const current = (s[model.id] ??= { enabled: model.ready, useReference: true, params: {} });
+  const current = (s[model.id] ??= { enabled: model.ready, useReference: model.reference.supported, params: {} });
+  if (!model.reference.supported) current.useReference = false;
   current.params = { ...model.defaults, ...current.params };
   return current;
 }
@@ -217,6 +218,27 @@ function renderParam(model, param, settings) {
       h('textarea', { id, rows: 2, value: value ?? '', oninput: (e) => set(e.target.value) }),
       help);
   }
+  if (param.type === 'voice-style') {
+    const pathInput = h('input', { type: 'text', id, value: value ?? '', placeholder: 'Sin estilo personalizado', onchange: (e) => set(e.target.value.trim()) });
+    const status = h('p', { class: 'hint', role: 'status' });
+    const upload = h('input', { type: 'file', accept: '.json,application/json', 'aria-label': 'Importar estilo de voz JSON', onchange: async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        if (file.size > 2_000_000) throw new Error('El estilo JSON supera 2 MB.');
+        status.textContent = 'Importando estilo…';
+        const result = await api('/api/supertonic/styles', { method: 'POST', body: { style: JSON.parse(await file.text()) } });
+        pathInput.value = result.path;
+        set(result.path);
+        status.textContent = `Estilo importado: ${file.name}`;
+      } catch (err) {
+        status.textContent = err.message;
+      }
+      e.target.value = '';
+    } });
+    const clear = h('button', { type: 'button', class: 'btn ghost small', onclick: () => { pathInput.value = ''; set(''); status.textContent = 'Se usará la voz integrada.'; } }, 'Usar voz integrada');
+    return h('div', { class: 'param' }, h('label', { for: id }, param.label), pathInput, upload, clear, help, status);
+  }
   return h('div', { class: 'param' },
     h('div', { class: 'param-head' }, h('label', { for: id }, param.label)),
     h('input', { type: 'number', id, min: param.min, max: param.max, step: param.step, value, onchange: (e) => set(Number(e.target.value)) }),
@@ -266,6 +288,8 @@ function renderStrips() {
     }
 
     const useRef = $('.use-ref', strip);
+    $('.ref-toggle', strip).hidden = !model.reference.supported;
+    useRef.disabled = !model.reference.supported;
     useRef.addEventListener('change', () => {
       settings.useReference = useRef.checked;
       saveSettings();
@@ -280,7 +304,7 @@ function renderStrips() {
       refreshPending(model.id);
     };
     stripFillers.set(model.id, fill);
-    $('.reset', strip).addEventListener('click', () => applyConfig(model, model.defaults, true));
+    $('.reset', strip).addEventListener('click', () => applyConfig(model, model.defaults, model.reference.supported));
 
     setupPresets(strip, model);
     $('.solo', strip).addEventListener('click', () => generateSolo(model));
@@ -472,6 +496,7 @@ const clip = (text, max = 48) => (text.length > max ? `${text.slice(0, max)}…`
 function paramText(param, value) {
   if (param.type === 'checkbox') return value ? 'sí' : 'no';
   if (param.type === 'textarea') return value ? `“${clip(value)}”` : '(vacía)';
+  if (param.type === 'voice-style') return value ? clip(value) : '(voz integrada)';
   return String(formatValue(param, value));
 }
 

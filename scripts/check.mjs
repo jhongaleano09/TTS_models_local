@@ -28,4 +28,12 @@ if (existsSync(pythonFor('torch'))) {
   const mps = execFileSync(pythonFor('torch'), ['-c', 'import torch;print(torch.backends.mps.is_available())']).toString().trim();
   line(mps === 'True', 'PyTorch con aceleración MPS');
 }
+if (existsSync(pythonFor('supertonic'))) {
+  try {
+    const info = execFileSync(pythonFor('supertonic'), ['-c', 'from importlib.metadata import version; import supertonic, onnxruntime, soundfile; print(version("supertonic")); print(version("onnxruntime")); print(",".join(onnxruntime.get_available_providers()))']).toString().trim().split('\n');
+    line(info[0] === '1.3.1' && info[1] === '1.24.4' && info[2]?.includes('CPUExecutionProvider'), `Supertonic SDK ${info[0]} · ONNX ${info[1]} · ${info[2]}`);
+  } catch {
+    line(false, 'Faltan dependencias de Supertonic. Ejecuta: npm run setup');
+  }
+}
 process.exit(ok ? 0 : 1);

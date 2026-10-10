@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Instala todo lo necesario: dependencias Node, dos entornos Python aislados y los pesos.
+# Instala dependencias Node, cuatro entornos Python aislados y los pesos.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -26,6 +26,10 @@ uv venv -q --allow-existing --python 3.11 .venvs/cosyvoice
 uv pip install -q --python .venvs/cosyvoice/bin/python -r workers/requirements-cosyvoice.txt
 # Su dependencia mlx-audio 0.2.10 sobrescribe archivos compartidos de mlx_audio/: se restauran los del fork.
 uv pip install -q --python .venvs/cosyvoice/bin/python --reinstall --no-deps mlx-audio-plus==0.1.8
+
+echo "→ Entorno ONNX CPU (Supertonic 3) en .venvs/supertonic"
+uv venv -q --allow-existing --python 3.11 .venvs/supertonic
+uv pip install -q --python .venvs/supertonic/bin/python -r workers/requirements-supertonic.txt
 
 echo "→ Pesos de los modelos (~16 GB la primera vez)"
 .venvs/mlx/bin/python scripts/download_models.py

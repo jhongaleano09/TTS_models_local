@@ -13,9 +13,10 @@ No se acumulan cambios sin publicar entre ajustes. Si el push falla, se reporta 
 ## Contexto
 
 - Arena local de modelos TTS para MacBook Air M5 16 GB. Investigación base: `docs/investigacion/investigacion_base_TTS.md`.
-- Modelos: Chatterbox V3 es-MX/LatAm (PyTorch/MPS), Qwen3-TTS 1.7B Base 4-bit, Fish S2 Pro 4-bit y Higgs TTS 3 6-bit (MLX vía `mlx-audio`), y CosyVoice3 0.5B 4-bit (MLX vía `mlx-audio-plus`).
+- Modelos: Chatterbox V3 es-MX/LatAm (PyTorch/MPS), Qwen3-TTS 1.7B Base 4-bit, Fish S2 Pro 4-bit y Higgs TTS 3 6-bit (MLX vía `mlx-audio`), CosyVoice3 0.5B 4-bit (MLX vía `mlx-audio-plus`) y Supertonic 3 (ONNX CPU vía SDK oficial 1.3.1).
 - Procesamiento **secuencial**: un proceso Python por modelo; al salir se libera la memoria antes de cargar el siguiente. Nunca correr dos modelos en paralelo.
-- Tres venvs aislados (`.venvs/torch`, `.venvs/mlx`, `.venvs/cosyvoice`): `chatterbox` y `mlx-audio` exigen versiones incompatibles de `transformers`, y `mlx-audio-plus` se instala como el mismo paquete `mlx_audio`.
-- Los guiones usan etiquetas de Fish; `server/tags.js` las traduce a Higgs y CosyVoice3 y las elimina para Chatterbox y Qwen.
+- Cuatro venvs aislados (`.venvs/torch`, `.venvs/mlx`, `.venvs/cosyvoice`, `.venvs/supertonic`): `chatterbox` y `mlx-audio` exigen versiones incompatibles de `transformers`, y `mlx-audio-plus` se instala como el mismo paquete `mlx_audio`; ONNX y Supertonic tienen su propio entorno.
+- Los guiones usan etiquetas de Fish; `server/tags.js` las traduce a Higgs, CosyVoice3 y los sonidos documentados de Supertonic, y las elimina para Chatterbox y Qwen.
 - El catálogo de modelos y sus parámetros vive en `server/models.js` (fuente única para UI y workers).
 - Documentación de parámetros por modelo: `docs/modelos.md`.
+- Supertonic: `docs/supertonic-3.md`. Pesos fijados del archivo oficial en `models/supertonic-3`, sin descarga durante inferencia. No admite clonación WAV local: usa voces integradas o estilos JSON existentes.

@@ -1,6 +1,6 @@
 # Modelos del Arena y sus parámetros
 
-Los cinco modelos recomendados por la [investigación base](investigacion/investigacion_base_TTS.md) para una MacBook Air M5 de 16 GB. Todos los parámetros de la interfaz salen de `server/models.js` y están tomados de las implementaciones oficiales que usa el proyecto. Se ejecutan **uno tras otro**: cada modelo corre en su propio proceso, que al terminar libera la memoria antes de cargar el siguiente.
+Los cinco modelos recomendados por la [investigación base](investigacion/investigacion_base_TTS.md), más **Supertonic 3** de Supertone, para una MacBook Air M5 de 16 GB. Todos los parámetros de la interfaz salen de `server/models.js` y están tomados de las implementaciones oficiales que usa el proyecto. Se ejecutan **uno tras otro**: cada modelo corre en su propio proceso, que al terminar libera la memoria antes de cargar el siguiente.
 
 Mediciones reales en la MacBook Air M5 16 GB (frase de ~115 caracteres, con clonación de la voz de referencia es-MX):
 
@@ -91,7 +91,7 @@ La variante **Base** no trae voces predefinidas. Tres modos según la referencia
 
 ### Cómo usar las etiquetas de Fish
 
-Fish S2 Pro acepta instrucciones en lenguaje natural entre corchetes, **dentro del texto**. Sin ellas lee de forma correcta pero plana; son lo que le da contraste. El servidor las traduce para Higgs y CosyVoice3 y las elimina del texto que reciben Chatterbox y Qwen (ver [Traducción de etiquetas](#traducción-de-etiquetas-entre-modelos)), así que un mismo texto etiquetado sirve para comparar los cinco.
+Fish S2 Pro acepta instrucciones en lenguaje natural entre corchetes, **dentro del texto**. Sin ellas lee de forma correcta pero plana; son lo que le da contraste. El servidor las traduce para Higgs, CosyVoice3 y los sonidos documentados de Supertonic, y las elimina del texto que reciben Chatterbox y Qwen (ver [Traducción de etiquetas](#traducción-de-etiquetas-entre-modelos)), así que un mismo texto etiquetado sirve para comparar los seis.
 
 Reglas prácticas:
 
@@ -199,9 +199,17 @@ La instrucción no frena el ritmo aunque pida pausas; para una locución pausada
 
 ---
 
+## 6. Supertonic 3 — ONNX CPU
+
+La [guía completa de Supertonic 3](supertonic-3.md) documenta procedencia, revisión fijada, instalación, los once controles de configuración, los 31 idiomas, estilos JSON, expresiones, licencia y pruebas locales. Incluye 10 voces; no clona el audio de referencia del Arena. Su SDK oficial está archivado.
+
+Prueba local breve en español: 6,97 s de audio generados en 1,11 s (RTF 0,159), carga 0,23 s y RSS pico 0,59 GB, con M1, 8 pasos, velocidad 1,05, cuatro hilos y semilla 42. Dos ejecuciones idénticas produjeron el mismo WAV. Estas cifras usan otro texto y otro modo de voz que las tablas históricas anteriores.
+
 ## Traducción de etiquetas entre modelos
 
 Los guiones se escriben con las etiquetas de Fish y `server/tags.js` las traduce antes de lanzar cada worker. También se pueden escribir etiquetas nativas de Higgs (`<|…|>`) o CosyVoice3 (`<strong>`, `[breath]`); a los demás modelos les llegan eliminadas.
+
+Para Supertonic, `[laughing]` / `[chuckle]` se convierten en `<laugh>`, `[inhale]` / `[exhale]` en `<breath>` y `[sigh]` en `<sigh>`. Las emociones y pausas de Fish se omiten. Consulta la [tabla específica y sus límites](supertonic-3.md#expresión-y-textos-largos).
 
 | Fish (guion) | Higgs TTS 3 | CosyVoice3 | Chatterbox / Qwen |
 |---|---|---|---|

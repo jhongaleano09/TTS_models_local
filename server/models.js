@@ -1,7 +1,7 @@
 // Catálogo de modelos del Arena: fuente única de parámetros para la UI y los workers.
 // Rangos y valores por defecto tomados de las implementaciones oficiales
 // (Space de Resemble para Chatterbox, mlx-audio 0.5.7 para Qwen3-TTS, Fish S2 Pro y Higgs TTS 3,
-// mlx-audio-plus 0.1.8 para CosyVoice3).
+// mlx-audio-plus 0.1.8 para CosyVoice3 y SDK supertonic 1.3.1 para Supertonic 3).
 
 const seedParam = {
   key: 'seed',
@@ -119,7 +119,7 @@ export const MODELS = [
     worker: 'cosyvoice_worker.py',
     license: 'Apache-2.0',
     size: '≈ 1.7 GB',
-    summary: 'El más ligero: 0.5B con buena prosodia y clonación zero-shot/cross-lingual. Instrucciones de estilo y control fino ([breath], <strong>).',
+    summary: 'El más ligero de los modelos MLX: 0.5B con buena prosodia y clonación zero-shot/cross-lingual. Instrucciones de estilo y control fino ([breath], <strong>).',
     reference: {
       supported: true,
       needsText: false,
@@ -132,6 +132,33 @@ export const MODELS = [
       { key: 'instruct', label: 'Instrucción de estilo', type: 'textarea', default: '', help: 'En inglés, p. ej. "Speak warmly and slowly, like a news anchor." Se antepone "You are a helpful assistant." como pide el modelo.' },
       { key: 'speed', label: 'Velocidad', type: 'slider', min: 0.5, max: 2, step: 0.05, default: 1.0, help: 'Estiramiento temporal posterior (no cambia el tono).' },
       { key: 'chunk_chars', label: 'Caracteres por fragmento', type: 'number', min: 80, max: 400, step: 10, default: 200, advanced: true, help: 'El texto se divide por oraciones; cada fragmento clona la misma referencia.' },
+      seedParam,
+    ],
+  },
+  {
+    id: 'supertonic',
+    name: 'Supertonic 3',
+    repo: 'supertone-oss-archive/supertonic-3',
+    revision: 'aafc6e32416a594460b32413efc49d7fe4ce6d46',
+    runtime: 'ONNX Runtime · CPU',
+    env: 'supertonic',
+    worker: 'supertonic_worker.py',
+    license: 'OpenRAIL-M',
+    size: '≈ 0.4 GB',
+    summary: 'Supertone: 99M parámetros, 31 idiomas, 10 voces y WAV 44.1 kHz. Síntesis local sin GPU. SDK oficial archivado; versión fijada en 1.3.1.',
+    reference: { supported: false, needsText: false, note: 'Elige una voz M1–M5 / F1–F5 o importa un estilo JSON de Supertonic 3. El SDK público no clona audio de referencia. Voice Builder cerró el 31 de agosto de 2026.' },
+    textHint: 'Admite <laugh>, <breath> y <sigh>. [laughing], [inhale], [exhale] y [sigh] se traducen; emociones y pausas de Fish se omiten. Configura el silencio entre fragmentos. Español general (es), sin selector es-MX.',
+    params: [
+      { key: 'voice_name', label: 'Voz integrada', type: 'select', options: ['M1', 'M2', 'M3', 'M4', 'M5', 'F1', 'F2', 'F3', 'F4', 'F5'], default: 'M1', help: 'M = voces masculinas; F = femeninas. Un estilo JSON tiene prioridad sobre esta selección.' },
+      { key: 'lang', label: 'Idioma (ISO)', type: 'select', options: ['es', 'en', 'ko', 'ja', 'ar', 'bg', 'cs', 'da', 'de', 'el', 'et', 'fi', 'fr', 'hi', 'hr', 'hu', 'id', 'it', 'lt', 'lv', 'nl', 'pl', 'pt', 'ro', 'ru', 'sk', 'sl', 'sv', 'tr', 'uk', 'vi', 'na'], default: 'es', help: '31 idiomas. na = tratamiento independiente del idioma; no es un detector de idioma.' },
+      { key: 'total_steps', label: 'Pasos de calidad', type: 'number', min: 1, max: 100, step: 1, default: 8, help: 'SDK: 1–100. Recomendación oficial: 5–12; más pasos cuestan más tiempo y no garantizan mejoras.' },
+      { key: 'speed', label: 'Velocidad', type: 'slider', min: 0.7, max: 2, step: 0.05, default: 1.05, help: 'Control nativo del predictor de duración; 1 = ritmo base. El SDK usa 1.05 por defecto.' },
+      { key: 'custom_style_path', label: 'Estilo de voz JSON', type: 'voice-style', default: '', help: 'Importa un JSON de Supertonic 3 o escribe su ruta local. Vacío = voz integrada. Queda guardado con los ajustes.' },
+      { key: 'max_chunk_length', label: 'Caracteres por fragmento', type: 'number', min: 0, max: 3000, step: 1, default: 0, advanced: true, help: '0 = automático: 120 para coreano, 300 para el resto. Manual: mínimo 10. El SDK agrupa por oraciones; no es un corte estricto.' },
+      { key: 'silence_duration', label: 'Silencio entre fragmentos (s)', type: 'number', min: 0, max: 10, step: 0.05, default: 0.3, advanced: true, help: 'Se aplica entre fragmentos; no añade silencio al final. Límite de interfaz: 10 s.' },
+      { key: 'intra_op_num_threads', label: 'Hilos dentro de operaciones', type: 'number', min: 0, max: 64, step: 1, default: 0, advanced: true, help: '0 = automático de ONNX Runtime. Prueba 2–4 para reducir competencia por CPU. Límite de interfaz: 64.' },
+      { key: 'inter_op_num_threads', label: 'Hilos entre operaciones', type: 'number', min: 0, max: 64, step: 1, default: 0, advanced: true, help: '0 = automático. El SDK usa ORT_SEQUENTIAL: este ajuste puede no producir diferencias.' },
+      { key: 'verbose', label: 'Registro detallado', type: 'checkbox', default: false, advanced: true, help: 'Muestra fragmentación, duración y progreso del SDK en el registro de la toma.' },
       seedParam,
     ],
   },

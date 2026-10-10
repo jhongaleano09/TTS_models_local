@@ -14,6 +14,7 @@
   --ch-fish: #a8680f;
   --ch-higgs: #b0376b;
   --ch-cosyvoice: #5a7a14;
+  --ch-supertonic: #146caa;
   --radius-panel: 14px;
   --radius-ctl: 8px;
   --shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 1px 2px rgba(24, 34, 46, 0.08);
@@ -35,6 +36,7 @@
     --ch-fish: #e0a142;
     --ch-higgs: #ec7fab;
     --ch-cosyvoice: #a9cc5c;
+    --ch-supertonic: #69bafa;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
     color-scheme: dark;
   }
@@ -143,7 +145,7 @@ audio { width: 100%; height: 36px; }
 .chip:hover { color: var(--ink); border-color: var(--ink-3); }
 
 /* ---------- Channel strips ---------- */
-.strips { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.strips { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; align-items: start; }
 .strip {
   --ch: var(--ink-3);
   background: var(--panel);
@@ -158,6 +160,7 @@ audio { width: 100%; height: 36px; }
 .strip[data-model="fish"] { --ch: var(--ch-fish); }
 .strip[data-model="higgs"] { --ch: var(--ch-higgs); }
 .strip[data-model="cosyvoice"] { --ch: var(--ch-cosyvoice); }
+.strip[data-model="supertonic"] { --ch: var(--ch-supertonic); }
 .strip.off .strip-body, .strip.off .output { opacity: 0.45; }
 
 .strip-head { padding: 14px 16px 12px; display: grid; gap: 6px; border-bottom: 1px solid var(--line); }
@@ -283,6 +286,7 @@ audio { width: 100%; height: 36px; }
 .run-result[data-model="fish"] { --ch: var(--ch-fish); }
 .run-result[data-model="higgs"] { --ch: var(--ch-higgs); }
 .run-result[data-model="cosyvoice"] { --ch: var(--ch-cosyvoice); }
+.run-result[data-model="supertonic"] { --ch: var(--ch-supertonic); }
 .run-result .name { font-weight: 600; font-size: 0.9rem; }
 .run-result .name .won { color: var(--ok); }
 .run-result .small-metrics { color: var(--ink-3); font-size: 0.8rem; }
@@ -300,6 +304,7 @@ tr[data-model="qwen"] { --ch: var(--ch-qwen); }
 tr[data-model="fish"] { --ch: var(--ch-fish); }
 tr[data-model="higgs"] { --ch: var(--ch-higgs); }
 tr[data-model="cosyvoice"] { --ch: var(--ch-cosyvoice); }
+tr[data-model="supertonic"] { --ch: var(--ch-supertonic); }
 
 /* ---------- Voces ---------- */
 .voice-form { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-panel); padding: 18px; display: grid; grid-template-columns: 1fr 1.3fr 1.6fr auto; gap: 16px; align-items: end; margin-bottom: 20px; }

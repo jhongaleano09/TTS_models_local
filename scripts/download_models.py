@@ -1,10 +1,11 @@
 """Descarga previa de los pesos de los modelos del Arena.
 
-Uso:  npm run download [-- chatterbox|qwen|fish|higgs|cosyvoice|whisper|voices ...]
+Uso:  npm run download [-- chatterbox|qwen|fish|higgs|cosyvoice|supertonic|whisper|voices ...]
 Sin argumentos descarga todo. Los pesos quedan en la caché de Hugging Face
-(~/.cache/huggingface), salvo Fish 4-bit, que se ensambla en models/.
+(~/.cache/huggingface), salvo Fish 4-bit y Supertonic 3, que quedan en models/.
 """
 
+import json
 import os
 import sys
 import urllib.request
@@ -26,6 +27,8 @@ WHISPER_REPO = "mlx-community/whisper-large-v3-turbo-asr-8bit"
 HIGGS_REPO = "whitelabel/mlx-q6-higgs-tts-3-4b"
 COSYVOICE_REPO = "mlx-community/Fun-CosyVoice3-0.5B-2512-4bit"
 COSYVOICE_S3_REPO = "mlx-community/S3TokenizerV3"
+SUPERTONIC_REPO = "supertone-oss-archive/supertonic-3"
+SUPERTONIC_REVISION = "aafc6e32416a594460b32413efc49d7fe4ce6d46"
 
 DEFAULT_VOICES = {
     "es_mx_f1.wav": "https://storage.googleapis.com/chatterbox-demo-samples/mtl-v3-single-language-prompts/es-latam/es_mx_f1.wav",
@@ -93,6 +96,21 @@ def cosyvoice() -> None:
     snapshot_download(COSYVOICE_S3_REPO)
 
 
+def supertonic() -> None:
+    log(f"Supertonic 3: {SUPERTONIC_REPO} (~0.4 GB, revisión fijada)")
+    destination = MODELS_DIR / "supertonic-3"
+    snapshot_download(
+        SUPERTONIC_REPO,
+        revision=SUPERTONIC_REVISION,
+        local_dir=destination,
+        allow_patterns=["onnx/*", "voice_styles/*.json", "LICENSE", "README.md", "config.json"],
+    )
+    (destination / "download-manifest.json").write_text(
+        json.dumps({"repo": SUPERTONIC_REPO, "revision": SUPERTONIC_REVISION}, indent=2),
+        encoding="utf-8",
+    )
+
+
 def voices() -> None:
     VOICES_DIR.mkdir(parents=True, exist_ok=True)
     for name, url in DEFAULT_VOICES.items():
@@ -114,6 +132,7 @@ TASKS = {
     "fish": fish,
     "higgs": higgs,
     "cosyvoice": cosyvoice,
+    "supertonic": supertonic,
     "whisper": whisper,
 }
 
