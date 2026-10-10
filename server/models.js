@@ -1,6 +1,6 @@
 // Catálogo de modelos del Arena: fuente única de parámetros para la UI y los workers.
 // Rangos y valores por defecto tomados de las implementaciones oficiales
-// (Space de Resemble para Chatterbox, mlx-audio 0.5.7 para Qwen3-TTS, Fish S2 Pro y Higgs TTS 3,
+// (Space de Resemble para Chatterbox, mlx-audio 0.5.7 para Qwen3-TTS, Fish S2 Pro, Higgs TTS 3 y VoxCPM2,
 // mlx-audio-plus 0.1.8 para CosyVoice3 y SDK supertonic 1.3.1 para Supertonic 3).
 
 const seedParam = {
@@ -14,6 +14,33 @@ const seedParam = {
 };
 
 export const MODELS = [
+  {
+    id: 'voxcpm2',
+    name: 'VoxCPM2 2B 4-bit',
+    repo: 'mlx-community/VoxCPM2-4bit',
+    revision: 'dc9e5c187858da5f4a13dc4c247e297339216381',
+    localDir: 'voxcpm2-4bit',
+    runtime: 'MLX · mlx-audio',
+    env: 'mlx',
+    worker: 'voxcpm2_worker.py',
+    license: 'Apache-2.0',
+    size: '≈ 2.3 GB',
+    summary: 'Clonación y creación de voces por descripción. 30 idiomas, incluido español, con salida nativa a 48 kHz.',
+    reference: { supported: true, needsText: false, note: 'Solo audio: clona el timbre. Con transcripción: combina timbre y contexto. Sin referencia: crea una voz con la descripción de estilo; el primer fragmento fija la voz de los siguientes.' },
+    textHint: 'Escribe el guion en español. Ajusta la entrega en «Descripción de voz / estilo». No usa etiquetas Fish; el idioma se infiere del texto. El acento latino depende de la referencia o descripción y debe comprobarse escuchando.',
+    params: [
+      { key: 'reference_mode', label: 'Modo de clonación', type: 'select', options: ['auto', 'reference', 'continuation', 'combined'], optionLabels: { auto: 'Automático', reference: 'Solo timbre (audio)', continuation: 'Continuación (audio + texto)', combined: 'Combinado (timbre + contexto)' }, default: 'auto', help: 'Automático: combinado si hay transcripción; solo timbre si no. Continuación y combinado requieren una transcripción exacta de la referencia.' },
+      { key: 'instruct', label: 'Descripción de voz / estilo', type: 'textarea', default: '', maxLength: 500, help: 'Sin audio crea una voz. Con audio controla la entrega. Ejemplo: «Voz masculina cálida, acento colombiano, narración pausada». Un estilo muy distinto puede reducir la similitud.' },
+      { key: 'cfg_value', label: 'Guía de voz (CFG)', type: 'slider', min: 2, max: 5, step: 0.1, default: 2, help: 'Fuerza del condicionamiento de voz y texto. Empieza en 2; un valor alto puede producir artefactos.' },
+      { key: 'inference_timesteps', label: 'Pasos de difusión', type: 'number', min: 1, max: 50, step: 1, default: 10, help: 'Más pasos cuestan más tiempo. 7–10 es un punto de partida para comparar calidad.' },
+      { key: 'chunk_chars', label: 'Caracteres por fragmento', type: 'number', min: 80, max: 600, step: 10, default: 300, advanced: true, help: 'Divide por oraciones para limitar memoria y evitar cortes en guiones largos.' },
+      { key: 'silence_duration', label: 'Pausa entre fragmentos (s)', type: 'slider', min: 0, max: 1, step: 0.01, default: 0.12, advanced: true },
+      { key: 'max_tokens', label: 'Máx. pasos de audio por fragmento', type: 'number', min: 128, max: 2048, step: 1, default: 512, advanced: true, help: '6.25 pasos ≈ 1 s; 512 permite unos 82 s por fragmento. Se detiene antes cuando termina la frase.' },
+      { key: 'min_tokens', label: 'Mín. pasos de audio', type: 'number', min: 1, max: 64, step: 1, default: 2, advanced: true },
+      { key: 'warmup_patches', label: 'Pasos de preparación', type: 'number', min: 0, max: 8, step: 1, default: 0, advanced: true, help: 'Preparación descartada del audio para suavizar el inicio en modo timbre o sin referencia. El runtime la desactiva en continuación.' },
+      { ...seedParam, max: 2_147_483_647 },
+    ],
+  },
   {
     id: 'chatterbox',
     name: 'Chatterbox V3 es-MX/LatAm',

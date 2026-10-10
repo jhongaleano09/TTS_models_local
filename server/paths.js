@@ -31,5 +31,16 @@ export function modelReadiness(model) {
       return { ready: false, reason: 'Faltan pesos o la revisión fijada de Supertonic 3. Ejecuta: npm run download -- supertonic' };
     }
   }
+  if (model.id === 'voxcpm2') {
+    const dir = join(ROOT, 'models', model.localDir);
+    try {
+      const manifest = JSON.parse(readFileSync(join(dir, 'download-manifest.json'), 'utf8'));
+      const files = ['config.json', 'model.safetensors', 'tokenizer.json', 'tokenizer_config.json', 'special_tokens_map.json'];
+      if (manifest.repo !== model.repo || manifest.revision !== model.revision || files.some((file) => !statSync(join(dir, file)).isFile() || statSync(join(dir, file)).size === 0 || statSync(join(dir, file)).size !== manifest.files?.[file])) throw new Error('Descarga incompleta');
+      if (!existsSync(join(ROOT, '.venvs', model.env, 'lib', 'python3.11', 'site-packages', 'mlx_audio', 'tts', 'models', 'voxcpm2', 'voxcpm2.py'))) throw new Error('Runtime incompleto');
+    } catch {
+      return { ready: false, reason: 'VoxCPM2 requiere sus pesos completos y mlx-audio 0.5.7. Ejecuta: npm run setup o npm run download -- voxcpm2' };
+    }
+  }
   return { ready: true };
 }

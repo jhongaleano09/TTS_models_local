@@ -1,8 +1,8 @@
 """Descarga previa de los pesos de los modelos del Arena.
 
-Uso:  npm run download [-- chatterbox|qwen|fish|higgs|cosyvoice|supertonic|whisper|voices ...]
+Uso: npm run download [-- chatterbox|qwen|fish|higgs|cosyvoice|supertonic|voxcpm2|whisper|voices ...]
 Sin argumentos descarga todo. Los pesos quedan en la caché de Hugging Face
-(~/.cache/huggingface), salvo Fish 4-bit y Supertonic 3, que quedan en models/.
+(~/.cache/huggingface), salvo Fish 4-bit, Supertonic 3 y VoxCPM2, que quedan en models/.
 """
 
 import json
@@ -29,6 +29,8 @@ COSYVOICE_REPO = "mlx-community/Fun-CosyVoice3-0.5B-2512-4bit"
 COSYVOICE_S3_REPO = "mlx-community/S3TokenizerV3"
 SUPERTONIC_REPO = "supertone-oss-archive/supertonic-3"
 SUPERTONIC_REVISION = "aafc6e32416a594460b32413efc49d7fe4ce6d46"
+VOXCPM2_REPO = "mlx-community/VoxCPM2-4bit"
+VOXCPM2_REVISION = "dc9e5c187858da5f4a13dc4c247e297339216381"
 
 DEFAULT_VOICES = {
     "es_mx_f1.wav": "https://storage.googleapis.com/chatterbox-demo-samples/mtl-v3-single-language-prompts/es-latam/es_mx_f1.wav",
@@ -111,6 +113,23 @@ def supertonic() -> None:
     )
 
 
+def voxcpm2() -> None:
+    log(f"VoxCPM2: {VOXCPM2_REPO} (~2.3 GB, revisión fijada)")
+    destination = MODELS_DIR / "voxcpm2-4bit"
+    snapshot_download(
+        VOXCPM2_REPO,
+        revision=VOXCPM2_REVISION,
+        local_dir=destination,
+        allow_patterns=["*.json", "model.safetensors", "README.md"],
+    )
+    files = ["config.json", "model.safetensors", "tokenizer.json", "tokenizer_config.json", "special_tokens_map.json"]
+    (destination / "download-manifest.json").write_text(
+        json.dumps({"repo": VOXCPM2_REPO, "revision": VOXCPM2_REVISION,
+                    "files": {name: (destination / name).stat().st_size for name in files}}, indent=2),
+        encoding="utf-8",
+    )
+
+
 def voices() -> None:
     VOICES_DIR.mkdir(parents=True, exist_ok=True)
     for name, url in DEFAULT_VOICES.items():
@@ -133,6 +152,7 @@ TASKS = {
     "higgs": higgs,
     "cosyvoice": cosyvoice,
     "supertonic": supertonic,
+    "voxcpm2": voxcpm2,
     "whisper": whisper,
 }
 

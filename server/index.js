@@ -12,6 +12,7 @@ import * as store from './store.js';
 import { textForModel } from './tags.js';
 import { runWorker } from './worker.js';
 import { validateSupertonicParams, validateSupertonicStyle } from './supertonic.js';
+import { validateCloningParams, validateCloningReference } from './cloning.js';
 
 const PORT = Number(process.env.PORT) || 5178;
 const MAX_TEXT = 3000;
@@ -96,6 +97,7 @@ app.get('/api/runs/:id', (req, res) => {
 // Solo se aceptan parámetros declarados en el catálogo.
 function sanitizeParams(model, params = {}) {
   if (model.id === 'supertonic') return validateSupertonicParams(model, params);
+  if (model.id === 'voxcpm2') return validateCloningParams(model, params);
   const clean = defaultsFor(model);
   for (const p of model.params) if (params?.[p.key] !== undefined) clean[p.key] = params[p.key];
   return clean;
@@ -126,6 +128,7 @@ app.post('/api/runs', (req, res) => {
     let params;
     try {
       params = sanitizeParams(model, reqModel.params);
+      if (model.id === 'voxcpm2') validateCloningReference(params, voice, Boolean(voice && reqModel.useReference !== false));
     } catch (err) {
       return res.status(400).json({ error: err.message });
     }

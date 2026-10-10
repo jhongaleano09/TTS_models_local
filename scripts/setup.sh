@@ -17,7 +17,7 @@ echo "→ Entorno PyTorch (Chatterbox) en .venvs/torch"
 uv venv -q --allow-existing --python 3.11 .venvs/torch
 uv pip install -q --python .venvs/torch/bin/python -r workers/requirements-torch.txt
 
-echo "→ Entorno MLX (Qwen3-TTS, Fish S2 Pro, Higgs TTS 3, Whisper) en .venvs/mlx"
+echo "→ Entorno MLX (Qwen3-TTS, Fish S2 Pro, Higgs TTS 3, VoxCPM2, Whisper) en .venvs/mlx"
 uv venv -q --allow-existing --python 3.11 .venvs/mlx
 uv pip install -q --python .venvs/mlx/bin/python -r workers/requirements-mlx.txt
 
@@ -31,7 +31,7 @@ echo "→ Entorno ONNX CPU (Supertonic 3) en .venvs/supertonic"
 uv venv -q --allow-existing --python 3.11 .venvs/supertonic
 uv pip install -q --python .venvs/supertonic/bin/python -r workers/requirements-supertonic.txt
 
-echo "→ Pesos de los modelos (~16 GB la primera vez)"
+echo "→ Pesos de los modelos (~19 GB la primera vez)"
 .venvs/mlx/bin/python scripts/download_models.py
 
 echo "✓ Listo. Arranca con: npm run dev"

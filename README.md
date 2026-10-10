@@ -12,6 +12,7 @@ Arena para comparar modelos de texto a voz en español latino **100 % en local**
 | **Higgs TTS 3 4B 6-bit** | MLX | Paralingüística fuerte: tokens `<\|emotion:…\|>`, `<\|sfx:laughter\|>`, pausas. |
 | **CosyVoice3 0.5B 4-bit** | MLX (mlx-audio-plus) | El más ligero de los modelos MLX; clonación zero-shot e instrucciones de estilo. |
 | **Supertonic 3** | ONNX Runtime · CPU | Supertone: 31 idiomas, 10 voces, estilos JSON y audio 44.1 kHz con ~0.4 GB de pesos. |
+| **VoxCPM2 2B 4-bit** | MLX | Clonación con audio y contexto, diseño de voz por descripción, español y salida nativa a 48 kHz. |
 
 La selección sale de la [investigación base](docs/investigacion/investigacion_base_TTS.md). Los parámetros de cada modelo y las mediciones de rendimiento están en [docs/modelos.md](docs/modelos.md).
 
@@ -19,18 +20,20 @@ La selección sale de la [investigación base](docs/investigacion/investigacion_
 
 Supertonic se añadió tras verificar el modelo original y el archivo oficial de Supertone. Su [guía completa de configuración](docs/supertonic-3.md) incluye los parámetros, idiomas, importación de estilos JSON, etiquetas y pruebas locales. El SDK público no clona una grabación; Voice Builder está cerrado y el código oficial archivado.
 
+VoxCPM2 se añadió al [validar el informe de cinco modelos adicionales](docs/investigacion/validacion-modelos-clonacion-2026-10-10.md). Solo este candidato reúne clonación local completa en el entorno instalado y español documentado. La [guía de VoxCPM2](docs/voxcpm2.md) explica sus controles de clonación, diseño, difusión y segmentación. Voxtral queda pendiente de una ruta experimental con Xcode; Step-Audio-EditX aún lista español como pendiente; Magpie v2607 y Kokoro no clonan.
+
 ## Requisitos
 
 - Mac con Apple Silicon y 16 GB de memoria o más.
 - Node.js 20 o superior.
 - [uv](https://docs.astral.sh/uv/) (`curl -LsSf https://astral.sh/uv/install.sh | sh`).
 - ffmpeg (`brew install ffmpeg`).
-- ~22 GB libres de disco para los pesos.
+- ~25 GB libres de disco para los pesos.
 
 ## Instalación y uso
 
 ```bash
-npm run setup     # dependencias Node, cuatro entornos Python y descarga de pesos (~16.4 GB)
+npm run setup     # dependencias Node, cuatro entornos Python y descarga de pesos (~18.7 GB)
 npm run check     # verifica que todo esté listo
 npm run dev       # abre http://localhost:5178
 ```
@@ -38,7 +41,7 @@ npm run dev       # abre http://localhost:5178
 | Script | Qué hace |
 |---|---|
 | `npm run setup` | Instala todo. Se puede repetir sin problema. |
-| `npm run download [-- fish]` | Descarga (o completa) pesos: `chatterbox`, `qwen`, `fish`, `higgs`, `cosyvoice`, `supertonic`, `whisper`, `voices`. |
+| `npm run download [-- fish]` | Descarga (o completa) pesos: `chatterbox`, `qwen`, `fish`, `higgs`, `cosyvoice`, `supertonic`, `voxcpm2`, `whisper`, `voices`. |
 | `npm run dev` | Servidor con recarga al cambiar `server/`. |
 | `npm start` | Servidor sin recarga. Puerto configurable con `PORT=…`. |
 | `npm run check` | Comprueba ffmpeg, entornos, pesos y MPS. |
@@ -65,6 +68,7 @@ Navegador ──HTTP/SSE──▶ Node (Express)
                           ├─▶ .venvs/mlx/bin/python   workers/mlx_worker.py       job.json  (Fish)
                           ├─▶ .venvs/mlx/bin/python   workers/mlx_worker.py       job.json  (Higgs)
                           ├─▶ .venvs/cosyvoice/bin/python workers/cosyvoice_worker.py job.json
+                          ├─▶ .venvs/mlx/bin/python workers/voxcpm2_worker.py job.json
                           └─▶ .venvs/supertonic/bin/python workers/supertonic_worker.py job.json
 ```
 
@@ -84,3 +88,4 @@ Navegador ──HTTP/SSE──▶ Node (Express)
 - Higgs TTS 3: Boson Higgs TTS 3 Research and Non-Commercial License. Contenido de creadores monetizable acreditando *"This audio was created with Boson AI's Higgs Audio"*; uso en productos o producción requiere licencia comercial.
 - CosyVoice3: Apache-2.0.
 - Supertonic 3: pesos OpenRAIL-M con condiciones de uso; SDK y ejemplos MIT.
+- VoxCPM2: Apache-2.0.

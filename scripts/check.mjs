@@ -28,6 +28,14 @@ if (existsSync(pythonFor('torch'))) {
   const mps = execFileSync(pythonFor('torch'), ['-c', 'import torch;print(torch.backends.mps.is_available())']).toString().trim();
   line(mps === 'True', 'PyTorch con aceleración MPS');
 }
+if (existsSync(pythonFor('mlx'))) {
+  try {
+    const info = execFileSync(pythonFor('mlx'), ['-c', 'from importlib.metadata import version; from mlx_audio.tts.models.voxcpm2 import Model; print(version("mlx-audio"))']).toString().trim();
+    line(info === '0.5.7', `VoxCPM2: runtime MLX ${info} con clonación`);
+  } catch {
+    line(false, 'Falta el runtime de VoxCPM2. Ejecuta: npm run setup');
+  }
+}
 if (existsSync(pythonFor('supertonic'))) {
   try {
     const info = execFileSync(pythonFor('supertonic'), ['-c', 'from importlib.metadata import version; import supertonic, onnxruntime, soundfile; print(version("supertonic")); print(version("onnxruntime")); print(",".join(onnxruntime.get_available_providers()))']).toString().trim().split('\n');

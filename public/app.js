@@ -173,8 +173,8 @@ function updateVoicePreview() {
   $('#voice-transcript').textContent = voice
     ? voice.transcript
       ? `“${voice.transcript}”`
-      : 'Sin transcripción: Qwen usará solo el timbre, CosyVoice3 irá en modo cross-lingual y Fish e Higgs clonarán con menos precisión.'
-    : 'Chatterbox usará su voz integrada; Qwen, Fish e Higgs generarán una voz aleatoria; CosyVoice3 clonará la voz demo es-MX.';
+      : 'Sin transcripción: Qwen y VoxCPM2 (automático) usarán solo el timbre, CosyVoice3 irá en modo cross-lingual y Fish e Higgs clonarán con menos precisión.'
+    : 'Chatterbox usará su voz integrada; Qwen, Fish e Higgs generarán una voz aleatoria; VoxCPM2 creará una voz con la descripción de estilo; CosyVoice3 clonará la voz demo es-MX.';
 }
 $('#voice').addEventListener('change', (e) => {
   state.settings.voiceId = e.target.value;
@@ -217,14 +217,14 @@ function renderParam(model, param, settings) {
       help);
   }
   if (param.type === 'select') {
-    const sel = h('select', { id, onchange: (e) => set(e.target.value) }, ...param.options.map((o) => h('option', { value: o }, o)));
+    const sel = h('select', { id, onchange: (e) => set(e.target.value) }, ...param.options.map((o) => h('option', { value: o }, param.optionLabels?.[o] ?? o)));
     sel.value = value;
     return h('div', { class: 'param' }, h('div', { class: 'param-head' }, h('label', { for: id }, param.label)), sel, help);
   }
   if (param.type === 'textarea') {
     return h('div', { class: 'param' },
       h('div', { class: 'param-head' }, h('label', { for: id }, param.label)),
-      h('textarea', { id, rows: 2, value: value ?? '', oninput: (e) => set(e.target.value) }),
+      h('textarea', { id, rows: 2, ...(param.maxLength ? { maxlength: param.maxLength } : {}), value: value ?? '', oninput: (e) => set(e.target.value) }),
       help);
   }
   if (param.type === 'voice-style') {

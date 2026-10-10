@@ -1,6 +1,6 @@
 # Modelos del Arena y sus parámetros
 
-Los cinco modelos recomendados por la [investigación base](investigacion/investigacion_base_TTS.md), más **Supertonic 3** de Supertone, para una MacBook Air M5 de 16 GB. Todos los parámetros de la interfaz salen de `server/models.js` y están tomados de las implementaciones oficiales que usa el proyecto. Se ejecutan **uno tras otro**: cada modelo corre en su propio proceso, que al terminar libera la memoria antes de cargar el siguiente.
+Los cinco modelos recomendados por la [investigación base](investigacion/investigacion_base_TTS.md), más **Supertonic 3** de Supertone y **VoxCPM2 2B 4-bit**, para una MacBook Air M5 de 16 GB. Todos los parámetros de la interfaz salen de `server/models.js` y están tomados de las implementaciones que usa el proyecto. Se ejecutan **uno tras otro**: cada modelo corre en su propio proceso, que al terminar libera la memoria antes de cargar el siguiente. La [guía de VoxCPM2](voxcpm2.md) detalla los modos de clonación/diseño y sus controles individuales; la [validación adicional](investigacion/validacion-modelos-clonacion-2026-10-10.md) explica por qué se incorporó este candidato del informe.
 
 Mediciones reales en la MacBook Air M5 16 GB (frase de ~115 caracteres, con clonación de la voz de referencia es-MX):
 
