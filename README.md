@@ -1,5 +1,7 @@
 # TTS Arena local
 
+Última comprobación del entorno y recuperación del proyecto: [validación del 9 de octubre de 2026](docs/validacion-2026-10-09.md).
+
 Arena para comparar modelos de texto a voz en español latino **100 % en local**, en una Mac con Apple Silicon. Escribes un texto, ajustas los parámetros de cada modelo, pulsas **Generar** y los modelos se ejecutan **uno tras otro**: cada uno se carga, genera su WAV y libera la memoria antes de cargar el siguiente. Probado en una MacBook Air M5 de 16 GB.
 
 | Modelo | Runtime | Por qué está aquí |
