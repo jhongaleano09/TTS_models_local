@@ -91,7 +91,7 @@
         <h2>Voces de referencia</h2>
         <p class="hint">Entre 5 y 15 segundos de una sola persona, sin música ni ruido. Qwen3-TTS y Fish clonan mejor si incluyes la transcripción exacta.</p>
       </div>
-      <form class="voice-form" id="voice-form">
+      <form class="voice-form" id="voice-form" novalidate>
         <div class="field">
           <label for="vf-name">Nombre</label>
           <input id="vf-name" required placeholder="Ej.: Locutor colombiano">
@@ -101,7 +101,7 @@
           <div class="audio-input">
             <label class="btn ghost file-btn">Elegir archivo<input type="file" id="vf-file" accept="audio/*" hidden></label>
             <button type="button" class="btn ghost" id="vf-record">Grabar</button>
-            <span class="hint" id="vf-audio-status">Sin audio</span>
+            <span class="hint" id="vf-audio-status" role="status" aria-live="polite">Sin audio</span>
           </div>
           <audio id="vf-preview" controls hidden></audio>
         </div>
@@ -111,6 +111,7 @@
         </div>
         <button class="btn primary" type="submit" id="vf-submit">Guardar voz</button>
       </form>
+      <p class="hint" id="vf-save-status" role="status" aria-live="polite"></p>
       <div id="voices-list"></div>
     </section>
   </main>

@@ -51,7 +51,7 @@ npm run dev       # abre http://localhost:5178
 - **Escucha a ciegas:** baraja los resultados como Modelo A/B/C/D/E/F; al votar se revelan los nombres.
 - **Historial:** todas las generaciones, con descarga del WAV y la opción de reutilizar su configuración.
 - **Ranking:** victorias por modelo en las comparaciones votadas y RTF medio.
-- **Voces:** sube o graba voces de referencia (5–15 s); Whisper las transcribe automáticamente.
+- **Voces:** sube o graba voces de referencia (5–15 s). Al guardar, la voz queda disponible para escucharla y seleccionada en Arena; **Usar en Arena** permite elegir cualquier voz guardada o la demo incluida. Whisper transcribe en segundo plano, sin bloquear el guardado; si falla, puedes escribir la transcripción o reintentarlo. La selección se conserva al recargar la página.
 
 ## Cómo funciona
 

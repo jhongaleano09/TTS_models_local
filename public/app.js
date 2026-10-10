@@ -154,13 +154,22 @@ function renderVoiceSelect() {
     ...state.voices.map((v) => h('option', { value: v.id }, v.name)),
   );
   select.value = state.voices.some((v) => v.id === selected) ? selected : '';
+  state.settings.voiceId = select.value;
+  saveSettings();
   updateVoicePreview();
+  refreshAllPending();
 }
 function updateVoicePreview() {
   const voice = state.voices.find((v) => v.id === $('#voice').value);
   const audio = $('#voice-preview');
   audio.hidden = !voice;
-  if (voice) audio.src = `/api/voices/${voice.id}/audio`;
+  if (voice) {
+    const src = `/api/voices/${voice.id}/audio`;
+    if (audio.getAttribute('src') !== src) audio.src = src;
+  } else {
+    audio.removeAttribute('src');
+    audio.load();
+  }
   $('#voice-transcript').textContent = voice
     ? voice.transcript
       ? `“${voice.transcript}”`
@@ -847,7 +856,12 @@ async function renderRanking() {
 // ---------- Voces ----------
 
 let pendingAudio = null; // { base64, mime }
+let preparingAudio = null;
+let previewUrl = null;
+let savingVoice = false;
 let recorder = null;
+let startingRecording = false;
+const voiceTranscriptions = new Map();
 
 function blobToBase64(blob) {
   return new Promise((resolve, reject) => {
@@ -858,12 +872,34 @@ function blobToBase64(blob) {
   });
 }
 
-async function setPendingAudio(blob, label) {
-  pendingAudio = { base64: await blobToBase64(blob), mime: blob.type || 'audio/wav' };
+function clearPendingAudio() {
+  pendingAudio = null;
+  if (previewUrl) URL.revokeObjectURL(previewUrl);
+  previewUrl = null;
   const preview = $('#vf-preview');
-  preview.src = URL.createObjectURL(blob);
-  preview.hidden = false;
-  $('#vf-audio-status').textContent = label;
+  preview.hidden = true;
+  preview.removeAttribute('src');
+  preview.load();
+}
+
+function setPendingAudio(blob, label) {
+  clearPendingAudio();
+  $('#vf-audio-status').textContent = 'Preparando audio…';
+  const task = blobToBase64(blob).then((base64) => {
+    if (preparingAudio !== task) return;
+    if (!blob.size) throw new Error('El audio está vacío. Graba o elige otro archivo.');
+    pendingAudio = { base64, mime: blob.type || 'audio/wav' };
+    previewUrl = URL.createObjectURL(blob);
+    $('#vf-preview').src = previewUrl;
+    $('#vf-preview').hidden = false;
+    $('#vf-audio-status').textContent = label;
+  }).catch((err) => {
+    if (preparingAudio === task) $('#vf-audio-status').textContent = err.message || 'No se pudo leer el audio. Vuelve a elegirlo.';
+  }).finally(() => {
+    if (preparingAudio === task) preparingAudio = null;
+  });
+  preparingAudio = task;
+  return task;
 }
 
 $('#vf-file').addEventListener('change', (e) => {
@@ -873,13 +909,21 @@ $('#vf-file').addEventListener('change', (e) => {
 
 $('#vf-record').addEventListener('click', async () => {
   const btn = $('#vf-record');
+  if (startingRecording || savingVoice) return;
   if (recorder) {
+    btn.disabled = true;
     recorder.stop();
     return;
   }
+  startingRecording = true;
+  btn.disabled = true;
+  $('#vf-file').disabled = true;
+  let stream;
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const chunks = [];
+    clearPendingAudio();
+    preparingAudio = null;
     recorder = new MediaRecorder(stream);
     recorder.ondataavailable = (e) => chunks.push(e.data);
     recorder.onstop = () => {
@@ -887,50 +931,97 @@ $('#vf-record').addEventListener('click', async () => {
       recorder = null;
       btn.textContent = 'Grabar';
       btn.classList.remove('recording');
+      btn.disabled = false;
+      $('#vf-file').disabled = false;
       setPendingAudio(new Blob(chunks, { type: chunks[0]?.type || 'audio/webm' }), 'Grabación lista');
     };
     recorder.start();
+    $('#vf-file').disabled = true;
     btn.textContent = 'Detener grabación';
     btn.classList.add('recording');
     $('#vf-audio-status').textContent = 'Grabando… habla con naturalidad durante 5 a 15 segundos';
   } catch {
+    stream?.getTracks().forEach((t) => t.stop());
+    recorder = null;
+    $('#vf-file').disabled = false;
     $('#vf-audio-status').textContent = 'No hay acceso al micrófono. Revisa los permisos del navegador.';
+  } finally {
+    startingRecording = false;
+    btn.disabled = false;
   }
 });
 
 $('#voice-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  if (!pendingAudio) {
-    $('#vf-audio-status').textContent = 'Elige un archivo o graba un audio primero.';
+  if (savingVoice) return;
+  const name = $('#vf-name').value.trim();
+  const status = $('#vf-save-status');
+  if (!name) {
+    status.textContent = 'Escribe un nombre para guardar la voz.';
+    $('#vf-name').focus();
     return;
   }
+  if (recorder || startingRecording) {
+    status.textContent = 'Detén la grabación antes de guardar la voz.';
+    return;
+  }
+  savingVoice = true;
   const submit = $('#vf-submit');
   submit.disabled = true;
   submit.textContent = 'Guardando…';
+  const inputs = [$('#vf-file'), $('#vf-record'), $('#vf-name'), $('#vf-transcript')];
+  inputs.forEach((input) => { input.disabled = true; });
+  status.textContent = 'Preparando y guardando la voz…';
   try {
+    await preparingAudio;
+    if (!pendingAudio) throw new Error('Elige un archivo o graba un audio primero.');
     const transcript = $('#vf-transcript').value.trim();
     const voice = await api('/api/voices', {
       method: 'POST',
-      body: { name: $('#vf-name').value, audioBase64: pendingAudio.base64, mime: pendingAudio.mime, transcript },
+      body: { name, audioBase64: pendingAudio.base64, mime: pendingAudio.mime, transcript },
     });
-    if (!transcript) {
-      submit.textContent = 'Transcribiendo…';
-      await api(`/api/voices/${voice.id}/transcribe`, { method: 'POST' }).catch(() => null);
-    }
     e.target.reset();
-    pendingAudio = null;
-    $('#vf-preview').hidden = true;
+    clearPendingAudio();
     $('#vf-audio-status').textContent = 'Sin audio';
     state.settings.voiceId = voice.id;
     saveSettings();
-    await loadVoices();
+    state.voices = [...state.voices.filter((v) => v.id !== voice.id), voice];
+    renderVoiceSelect();
+    renderVoices();
+    status.textContent = `Voz «${voice.name}» guardada y seleccionada en Arena. Ya puedes escucharla y usarla como referencia.`;
+    if (!transcript) void transcribeVoice(voice.id);
   } catch (err) {
-    $('#vf-audio-status').textContent = err.message;
+    status.textContent = err.message;
   } finally {
+    savingVoice = false;
+    inputs.forEach((input) => { input.disabled = false; });
     submit.disabled = false;
     submit.textContent = 'Guardar voz';
   }
 });
+
+async function transcribeVoice(id) {
+  if (voiceTranscriptions.get(id)?.pending) return;
+  voiceTranscriptions.set(id, { pending: true, message: 'Transcripción en cola o en curso. La voz ya está disponible en Arena.' });
+  renderVoices();
+  try {
+    const result = await api(`/api/voices/${id}/transcribe`, { method: 'POST' });
+    const voice = state.voices.find((v) => v.id === id);
+    if (voice) voice.transcript = result.transcript;
+    voiceTranscriptions.set(id, { pending: false, message: 'Transcripción lista.' });
+  } catch (err) {
+    voiceTranscriptions.set(id, { pending: false, message: `Voz guardada. No se pudo transcribir: ${err.message}. Puedes escribir la transcripción o reintentarlo.` });
+  }
+  renderVoiceSelect();
+  if (!$('#view-voices').hidden) renderVoices();
+}
+
+function useVoice(id) {
+  state.settings.voiceId = id;
+  saveSettings();
+  renderVoiceSelect();
+  showTab('arena');
+}
 
 function renderVoices() {
   const container = $('#voices-list');
@@ -940,31 +1031,36 @@ function renderVoices() {
   }
   container.replaceChildren(
     ...state.voices.map((v) => {
-      const transcript = h('textarea', { rows: 2, value: v.transcript ?? '', disabled: v.builtin, placeholder: 'Sin transcripción' });
-      const status = h('span', { class: 'hint' });
+      const transcription = voiceTranscriptions.get(v.id);
+      const transcript = h('textarea', { rows: 2, value: v.transcript ?? '', disabled: v.builtin || transcription?.pending, placeholder: 'Sin transcripción' });
+      const status = h('span', { class: 'hint', role: 'status' }, transcription?.message);
       return h('div', { class: 'voice-item' },
         h('div', {}, h('p', { class: 'name' }, v.name), h('p', { class: 'hint' }, v.builtin ? 'Incluida' : `${v.duration ? `${v.duration.toFixed(1)} s` : ''}`), h('audio', { controls: true, preload: 'none', src: `/api/voices/${v.id}/audio` })),
         transcript,
         h('div', { class: 'actions' },
+          h('button', { class: 'btn ghost small', type: 'button', onclick: () => useVoice(v.id) }, 'Usar en Arena'),
           v.builtin
             ? null
             : [
-                h('button', { class: 'btn ghost small', onclick: async () => { await api(`/api/voices/${v.id}`, { method: 'PATCH', body: { transcript: transcript.value } }); status.textContent = 'Guardada'; await loadVoices(false); } }, 'Guardar transcripción'),
+                h('button', { class: 'btn ghost small', disabled: transcription?.pending, onclick: async () => {
+                  try {
+                    await api(`/api/voices/${v.id}`, { method: 'PATCH', body: { transcript: transcript.value } });
+                    status.textContent = 'Guardada';
+                    await loadVoices(false);
+                  } catch (err) { status.textContent = err.message; }
+                } }, 'Guardar transcripción'),
                 h('button', {
                   class: 'link',
-                  onclick: async () => {
-                    status.textContent = 'Transcribiendo con Whisper…';
-                    try {
-                      const r = await api(`/api/voices/${v.id}/transcribe`, { method: 'POST' });
-                      transcript.value = r.transcript;
-                      status.textContent = 'Transcrita';
-                      await loadVoices(false);
-                    } catch (err) {
-                      status.textContent = err.message;
-                    }
-                  },
+                  disabled: transcription?.pending,
+                  onclick: () => transcribeVoice(v.id),
                 }, 'Transcribir con Whisper'),
-                h('button', { class: 'link danger', onclick: async () => { await api(`/api/voices/${v.id}`, { method: 'DELETE' }); await loadVoices(); } }, 'Eliminar'),
+                h('button', { class: 'link danger', disabled: transcription?.pending, onclick: async () => {
+                  try {
+                    await api(`/api/voices/${v.id}`, { method: 'DELETE' });
+                    voiceTranscriptions.delete(v.id);
+                    await loadVoices();
+                  } catch (err) { status.textContent = err.message; }
+                } }, 'Eliminar'),
               ],
           status));
     }),
@@ -993,6 +1089,7 @@ function connectEvents() {
     try {
       for (const r of await api('/api/runs')) state.runs.set(r.id, r);
       state.presets = await api('/api/presets');
+      await loadVoices();
       renderPresetSelects();
       if ($('#error').textContent === OFFLINE_MSG) showError(null);
       renderOutputs();
